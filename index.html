@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classificador Qualis CAPES - Enfermagem</title>
+  <meta name="description" content="Ferramenta automatizada para enriquecimento de métricas e classificação de periódicos científicos de acordo com as regras da CAPES para Enfermagem e Outras Áreas.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Gradientes de Fundo Ambientais -->
+  <div class="ambient-bg">
+    <div class="ambient-circle-1"></div>
+    <div class="ambient-circle-2"></div>
+  </div>
+
+  <div class="container">
+    
+    <!-- Cabeçalho Principal -->
+    <header>
+      <div class="logo-container">
+        <div class="logo-icon">QC</div>
+        <div class="logo-text">
+          <h1>Qualis CAPES</h1>
+          <p>Classificador de Artigos (Enfermagem)</p>
+        </div>
+      </div>
+      <button id="theme-toggle" class="theme-toggle-btn">🌙 Modo Escuro</button>
+    </header>
+
+    <!-- Grid de Controle & Banco Local -->
+    <div class="main-grid">
+      
+      <!-- Lado Esquerdo: Painéis de Entrada -->
+      <div class="input-panels">
+        
+        <!-- Entrada Individual -->
+        <div class="card">
+          <h2 class="card-title">🔍 Consulta Individual</h2>
+          <form id="single-issn-form">
+            <div class="form-group">
+              <label for="single-issn-input">Digite o ISSN do Periódico:</label>
+              <input type="text" id="single-issn-input" class="text-input" placeholder="Ex: 0104-1169 ou 0021-9746" required>
+            </div>
+            <button type="submit" class="btn">Classificar ISSN</button>
+          </form>
+        </div>
+
+        <!-- Entrada em Lote -->
+        <div class="card">
+          <h2 class="card-title">📚 Entrada em Lote</h2>
+          <form id="batch-issn-form">
+            <div class="form-group">
+              <label for="batch-issn-input">Insira uma lista de ISSNs (um por linha ou separados por espaço/vírgula):</label>
+              <textarea id="batch-issn-input" class="text-input" placeholder="Ex:&#10;0104-1169&#10;0034-7167&#10;0021-9746" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-secondary">Classificar Lote</button>
+          </form>
+        </div>
+
+        <!-- Upload de Planilha / CSV -->
+        <div class="card">
+          <h2 class="card-title">📤 Upload de Planilha (CSV)</h2>
+          <div id="dropzone" class="dropzone">
+            <div class="dropzone-icon">📄</div>
+            <p>Arraste e solte seu arquivo <strong>CSV</strong> aqui ou <span class="highlight">clique para selecionar</span></p>
+            <p style="font-size: 11px; color: var(--text-muted);">Recomendado conter uma coluna chamada 'ISSN' (delimitador , ou ;)</p>
+            <input type="file" id="file-input" accept=".csv">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Lado Direito: Preview da Base Local e Ajuda -->
+      <div class="info-panels">
+        
+        <!-- Status da Base de Dados de Referência -->
+        <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+          <h2 class="card-title">🗄️ Base de Referência Local</h2>
+          <div class="db-status-container" style="flex: 1; display: flex; flex-direction: column;">
+            <div id="db-status" class="db-badge">Carregando base...</div>
+            <p style="font-size: 13px; color: var(--text-secondary);">
+              Os periódicos abaixo estão carregados no banco local. Quando um ISSN correspondente for consultado, o sistema recupera seus indexadores, JCR, CiteScore e calcula o Qualis.
+            </p>
+            <div id="db-preview-list" class="db-list-preview" style="flex: 1;">
+              <!-- Revistas carregadas via JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Resultados do Processamento -->
+    <div id="results-container" class="card" style="display: none;">
+      <div class="results-header">
+        <h2 class="results-title">📊 Periódicos Classificados</h2>
+        <div class="results-actions">
+          <button id="btn-export" class="btn">💾 Exportar para Excel/CSV</button>
+          <button id="btn-clear" class="btn btn-secondary">🗑️ Limpar Resultados</button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros e Busca -->
+      <div class="search-filter-bar">
+        <input type="text" id="search-box" class="text-input search-box" placeholder="Filtrar por Título ou ISSN...">
+        <select id="filter-estrato" class="select-filter">
+          <option value="ALL">Todos os Estratos</option>
+          <option value="A1">Qualis A1</option>
+          <option value="A2">Qualis A2</option>
+          <option value="A3">Qualis A3</option>
+          <option value="A4">Qualis A4</option>
+          <option value="A5">Qualis A5</option>
+          <option value="A6">Qualis A6</option>
+          <option value="A7">Qualis A7</option>
+          <option value="A8">Qualis A8</option>
+          <option value="NC">Não Classificado (NC)</option>
+        </select>
+      </div>
+
+      <!-- Tabela -->
+      <div class="table-responsive">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Título / Revista</th>
+              <th>ISSN</th>
+              <th>Área Encontrada</th>
+              <th>JCR</th>
+              <th>CiteScore</th>
+              <th>Indexadores Ativos</th>
+              <th>Estrato CAPES</th>
+              <th>Justificativa da Regra</th>
+            </tr>
+          </thead>
+          <tbody id="results-table-body">
+            <!-- Resultados inseridos via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Dashboard de Testes Unitários de Diagnóstico -->
+    <div class="card tests-dashboard">
+      <details open>
+        <summary id="tests-summary" class="tests-summary">
+          <h2 class="card-title" style="margin-bottom: 0; display: inline-flex;">🩺 Diagnóstico do Motor de Regras</h2>
+          <div style="font-size: 14px; font-weight: 500;">
+            <span style="color: var(--success);">🟢 Passaram: <span id="passed-count">0</span></span> | 
+            <span style="color: var(--error);">🔴 Falharam: <span id="failed-count">0</span></span>
+          </div>
+        </summary>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 10px;">
+          Estes testes garantem que as regras de negócio em cascata para classificação CAPES (tanto para a área de Enfermagem quanto Outras Áreas) estão rodando com 100% de exatidão matemática.
+        </p>
+        <div id="tests-results-grid" class="tests-results-grid">
+          <!-- Cards de testes carregados via JS -->
+        </div>
+      </details>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>&copy; 2026 - Classificador Qualis CAPES Automatizado. Desenvolvido para auxílio acadêmico.</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

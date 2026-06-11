@@ -1,0 +1,112 @@
+{
+  "0104-1169": {
+    "title": "Revista Latino-Americana de Enfermagem",
+    "area": "Enfermagem",
+    "jcr": 1.9,
+    "citeScore": 3.2,
+    "indexers": ["MEDLINE", "SCIELO", "LILACS", "BDENF", "CINAHL"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "0034-7167": {
+    "title": "Revista Brasileira de Enfermagem",
+    "area": "Enfermagem",
+    "jcr": 0.8,
+    "citeScore": 1.5,
+    "indexers": ["SCIELO", "LILACS", "BDENF", "CINAHL"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "1983-1447": {
+    "title": "Revista Gaúcha de Enfermagem",
+    "area": "Enfermagem",
+    "jcr": 0.0,
+    "citeScore": 0.5,
+    "indexers": ["LILACS", "BDENF", "RevEnf"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "1518-8345": {
+    "title": "Revista Eletrônica de Enfermagem",
+    "area": "Enfermagem",
+    "jcr": null,
+    "citeScore": null,
+    "indexers": ["RevEnf", "LILACS", "Latindex"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "1699-5988": {
+    "title": "Cultura de los Cuidados",
+    "area": "Enfermagem",
+    "jcr": null,
+    "citeScore": null,
+    "indexers": ["RIC/CUIDEN", "Latindex"],
+    "metrics": {
+      "cuiden": 1.6
+    }
+  },
+  "1132-1296": {
+    "title": "Index de Enfermería",
+    "area": "Enfermagem",
+    "jcr": null,
+    "citeScore": null,
+    "indexers": ["RIC/CUIDEN", "Latindex"],
+    "metrics": {
+      "cuiden": 0.8
+    }
+  },
+  "0021-9746": {
+    "title": "Journal of Clinical Pathology",
+    "area": "Outras Áreas",
+    "jcr": 4.1,
+    "citeScore": 4.8,
+    "indexers": ["MEDLINE", "SCIELO"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "0022-3476": {
+    "title": "The Journal of Pediatrics",
+    "area": "Outras Áreas",
+    "jcr": 5.1,
+    "citeScore": 6.2,
+    "indexers": ["MEDLINE"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "0020-7489": {
+    "title": "International Journal of Nursing Studies",
+    "area": "Enfermagem",
+    "jcr": 5.8,
+    "citeScore": 8.9,
+    "indexers": ["MEDLINE", "CINAHL"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "1234-5678": {
+    "title": "Revista de Teste Latindex Apenas",
+    "area": "Enfermagem",
+    "jcr": null,
+    "citeScore": null,
+    "indexers": ["Latindex"],
+    "metrics": {
+      "cuiden": null
+    }
+  },
+  "8765-4321": {
+    "title": "Revista Não Classificada de Exemplo",
+    "area": "Enfermagem",
+    "jcr": null,
+    "citeScore": null,
+    "indexers": [],
+    "metrics": {
+      "cuiden": null
+    }
+  }
+}
