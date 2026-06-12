@@ -97,15 +97,29 @@ def compile_database():
             df_jcr = pd.read_csv(JCR_PATH, skiprows=2)
             print(f"Processando {len(df_jcr)} registros de JCR (Enfermagem)...")
             
+            # ATENÇÃO: O CSV do JCR Clarivate tem um trailing comma em cada linha
+            # de dados e o campo "Journal name" vem entre aspas (contém vírgulas).
+            # Isso causa deslocamento das colunas. Os dados reais ficam assim:
+            #   col[0] "Journal name" -> JCR Abbreviation (abreviação)
+            #   col[1] "JCR Abbreviation" -> Publisher
+            #   col[2] "Publisher" -> ISSN (o ISSN real!)
+            #   col[3] "ISSN" -> eISSN (o eISSN real!)
+            #   col[4] "eISSN" -> Category ("NURSING")
+            #   col[5] "Category" -> Edition ("SCIE, SSCI")
+            #   col[6] "Edition" -> 2024 JIF (o JIF real!)
+            #   col[7] "2024 JIF" -> JIF Rank
+            #   col[8] "JIF Rank" -> NaN (do trailing comma)
+            cols = df_jcr.columns.tolist()
+            
             for idx, row in df_jcr.iterrows():
-                raw_issn = row.get('ISSN')
-                raw_eissn = row.get('eISSN')
+                # Acessa pelo índice real das colunas deslocadas
+                raw_issn = row.iloc[2] if len(cols) > 2 else None   # Publisher -> ISSN real
+                raw_eissn = row.iloc[3] if len(cols) > 3 else None  # ISSN -> eISSN real
+                jcr_val = parse_float(row.iloc[6]) if len(cols) > 6 else None  # Edition -> JIF real
+                title = str(row.iloc[0] if len(cols) > 0 else '').strip()  # Journal name (abreviação JCR)
                 
                 issn = normalize_issn(raw_issn)
                 eissn = normalize_issn(raw_eissn)
-                
-                jcr_val = parse_float(row.get('2024 JIF'))
-                title = str(row.get('Journal name', '')).strip()
                 
                 # Associa a métrica ao ISSN principal ou eISSN
                 for target_issn in [issn, eissn]:
@@ -124,7 +138,8 @@ def compile_database():
                             }
                         }
                     else:
-                        journals[target_issn]["jcr"] = jcr_val
+                        if jcr_val is not None:
+                            journals[target_issn]["jcr"] = jcr_val
                         journals[target_issn]["area"] = "Enfermagem"
                         if title and not journals[target_issn]["title"]:
                             journals[target_issn]["title"] = title
@@ -142,6 +157,10 @@ def compile_database():
             df_scopus = pd.read_excel(SCOPUS_PATH, sheet_name='Scopus Sources May 2026')
             print(f"Processando {len(df_scopus)} registros da Scopus...")
             
+            # A coluna Nursing (2900) está no índice 44 da planilha
+            scopus_cols = df_scopus.columns.tolist()
+            nursing_col = scopus_cols[44] if len(scopus_cols) > 44 else None
+            
             for idx, row in df_scopus.iterrows():
                 raw_issn = row.get('ISSN')
                 raw_eissn = row.get('EISSN')
@@ -149,8 +168,14 @@ def compile_database():
                 issn = normalize_issn(raw_issn)
                 eissn = normalize_issn(raw_eissn)
                 
+                # O valor real na planilha é "Medline", não "YES"/"Y"
                 medline_sourced = str(row.get('Medline-sourced Title? (See additional details under separate tab.)', '')).strip().upper()
-                is_medline = medline_sourced in ['YES', 'Y']
+                is_medline = medline_sourced in ['YES', 'Y', 'MEDLINE']
+                
+                # Verifica se está na área de Nursing (coluna 2900)
+                is_nursing_scopus = False
+                if nursing_col is not None and pd.notna(row.get(nursing_col)):
+                    is_nursing_scopus = True
                 
                 title = str(row.get('Source Title', '')).strip()
                 
@@ -161,7 +186,7 @@ def compile_database():
                     if target_issn not in journals:
                         journals[target_issn] = {
                             "title": title,
-                            "area": "Outras Áreas",
+                            "area": "Enfermagem" if is_nursing_scopus else "Outras Áreas",
                             "jcr": None,
                             "citeScore": None,
                             "indexers": ["MEDLINE"] if is_medline else [],
@@ -172,6 +197,9 @@ def compile_database():
                     else:
                         if is_medline and "MEDLINE" not in journals[target_issn]["indexers"]:
                             journals[target_issn]["indexers"].append("MEDLINE")
+                        # Complementa a área: se Scopus diz Nursing e Sucupira não marcou
+                        if is_nursing_scopus and journals[target_issn]["area"] != "Enfermagem":
+                            journals[target_issn]["area"] = "Enfermagem"
                         if title and not journals[target_issn]["title"]:
                             journals[target_issn]["title"] = title
             
@@ -180,6 +208,79 @@ def compile_database():
             print(f"Erro ao processar journals_scopus.xlsx: {e}")
     else:
         print(f"AVISO: {SCOPUS_PATH} não encontrado. Indexadores Medline não serão atualizados.")
+
+    # --- 3.1. PROCESSAR CITESCORE (PLANILHA SEPARADA, SE DISPONÍVEL) ---
+    CITESCORE_PATH = os.path.join(DATA_DIR, "citescore.xlsx")
+    if os.path.exists(CITESCORE_PATH):
+        print(f"Lendo {CITESCORE_PATH} (CiteScore Metrics)...")
+        try:
+            df_cs = pd.read_excel(CITESCORE_PATH)
+            print(f"Processando {len(df_cs)} registros de CiteScore...")
+            
+            for idx, row in df_cs.iterrows():
+                raw_issn = row.get('ISSN') or row.get('Print ISSN')
+                raw_eissn = row.get('EISSN') or row.get('E-ISSN')
+                
+                issn = normalize_issn(raw_issn)
+                eissn = normalize_issn(raw_eissn)
+                
+                # Tenta encontrar a coluna de CiteScore (varia entre edições)
+                cs_val = None
+                for cs_col_name in ['CiteScore', 'CiteScore 2024', 'CiteScore 2023', 'Highest CiteScore']:
+                    if cs_col_name in df_cs.columns:
+                        cs_val = parse_float(row.get(cs_col_name))
+                        if cs_val is not None:
+                            break
+                
+                title = str(row.get('Title', row.get('Source Title', ''))).strip()
+                
+                for target_issn in [issn, eissn]:
+                    if not target_issn:
+                        continue
+                    
+                    if target_issn not in journals:
+                        journals[target_issn] = {
+                            "title": title,
+                            "area": "Outras Áreas",
+                            "jcr": None,
+                            "citeScore": cs_val,
+                            "indexers": [],
+                            "metrics": {
+                                "cuiden": None
+                            }
+                        }
+                    else:
+                        if cs_val is not None and journals[target_issn]["citeScore"] is None:
+                            journals[target_issn]["citeScore"] = cs_val
+                        if title and not journals[target_issn]["title"]:
+                            journals[target_issn]["title"] = title
+            
+            print("CiteScore processado com sucesso.")
+        except Exception as e:
+            print(f"Erro ao processar citescore.xlsx: {e}")
+    else:
+        print(f"AVISO: {CITESCORE_PATH} não encontrado. CiteScore não será carregado.")
+
+    # --- 3.2. PROCESSAR CITESCORE_CACHE.JSON (GERADO PELA API ELSEVIER) ---
+    CITESCORE_CACHE_PATH = os.path.join(DATA_DIR, "citescore_cache.json")
+    if os.path.exists(CITESCORE_CACHE_PATH):
+        print(f"Lendo {CITESCORE_CACHE_PATH} (Cache API Elsevier)...")
+        try:
+            with open(CITESCORE_CACHE_PATH, "r", encoding="utf-8") as f:
+                cs_cache = json.load(f)
+            
+            applied = 0
+            for issn, metrics in cs_cache.items():
+                cs_val = metrics.get("citeScore")
+                if cs_val is not None and issn in journals:
+                    journals[issn]["citeScore"] = cs_val
+                    applied += 1
+            
+            print(f"CiteScore (API Elsevier): {applied} periódicos atualizados de {len(cs_cache)} no cache.")
+        except Exception as e:
+            print(f"Erro ao processar citescore_cache.json: {e}")
+    else:
+        print(f"INFO: {CITESCORE_CACHE_PATH} não encontrado. Rode fetch_citescore.py para popular.")
 
     # --- 4. GRAVAR RESULTADO EM JOURNALS.JSON ---
     print(f"Gravando base consolidada contendo {len(journals)} periódicos...")

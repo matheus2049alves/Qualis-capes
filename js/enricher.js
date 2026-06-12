@@ -20,7 +20,8 @@ export function normalizeISSN(issn) {
   if (cleaned.length === 8) {
     return `${cleaned.substring(0, 4)}-${cleaned.substring(4)}`;
   }
-  return cleaned;
+  // ISSN inválido: retorna vazio para evitar chaves malformadas
+  return '';
 }
 
 /**
@@ -71,7 +72,28 @@ export function setDatabase(data) {
 }
 
 /**
+ * Busca o CiteScore de um ISSN via API Elsevier (proxy local).
+ * Retorna null se a API falhar ou não encontrar.
+ * @param {string} issn ISSN normalizado (XXXX-XXXX)
+ * @returns {Promise<number|null>} CiteScore ou null
+ */
+async function fetchCiteScoreFromAPI(issn) {
+  try {
+    const response = await fetch(`/api/citescore/${issn}`);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.citeScore ?? null;
+  } catch (error) {
+    // API indisponível — segue sem CiteScore
+    console.warn(`[CiteScore API] Falha para ${issn}:`, error.message);
+    return null;
+  }
+}
+
+/**
  * Consulta os dados de um periódico pelo ISSN e aplica a classificação.
+ * Se o CiteScore não existe no banco local, busca da API Elsevier sob demanda.
  * @param {string} rawIssn ISSN digitado ou importado
  * @returns {Promise<Object>} Dados consolidados da revista e classificação
  */
@@ -96,6 +118,15 @@ export async function enrichAndClassify(rawIssn) {
         justification: 'ISSN não encontrado na base de dados de referência local.'
       }
     };
+  }
+
+  // Se CiteScore não existe no banco local, busca da API sob demanda
+  if (dbRecord.citeScore == null) {
+    const apiCiteScore = await fetchCiteScoreFromAPI(normalized);
+    if (apiCiteScore != null) {
+      dbRecord.citeScore = apiCiteScore;
+      console.log(`[CiteScore API] ${normalized}: ${apiCiteScore}`);
+    }
   }
 
   // Classifica usando o motor de decisão
