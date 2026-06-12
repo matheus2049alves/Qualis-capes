@@ -92,8 +92,26 @@ async function fetchCiteScoreFromAPI(issn) {
 }
 
 /**
+ * Busca indexações no SciELO e RevEnf via API SciELO (proxy local).
+ * @param {string} issn ISSN normalizado (XXXX-XXXX)
+ * @returns {Promise<{scielo: boolean, revenf: boolean, title: string|null}>}
+ */
+async function fetchSciELOFromAPI(issn) {
+  try {
+    const response = await fetch(`/api/scielo/${issn}`);
+    if (!response.ok) return { scielo: false, revenf: false, title: null };
+    
+    return await response.json();
+  } catch (error) {
+    console.warn(`[SciELO API] Falha para ${issn}:`, error.message);
+    return { scielo: false, revenf: false, title: null };
+  }
+}
+
+/**
  * Consulta os dados de um periódico pelo ISSN e aplica a classificação.
  * Se o CiteScore não existe no banco local, busca da API Elsevier sob demanda.
+ * Também consulta a API SciELO se a indexação local estiver ausente.
  * @param {string} rawIssn ISSN digitado ou importado
  * @returns {Promise<Object>} Dados consolidados da revista e classificação
  */
@@ -101,23 +119,61 @@ export async function enrichAndClassify(rawIssn) {
   const db = await loadDatabase();
   const normalized = normalizeISSN(rawIssn);
   
-  const dbRecord = db[normalized];
+  let dbRecord = db[normalized];
 
   if (!dbRecord) {
-    // Retorna registro padrão "Não Classificado" caso não encontre
-    return {
-      issn: normalized || rawIssn || 'N/A',
-      title: 'Periódico Não Identificado na Base',
-      area: 'Outras Áreas',
-      jcr: null,
-      citeScore: null,
-      indexers: [],
-      metrics: { cuiden: null },
-      classification: {
-        estrato: 'NC',
-        justification: 'ISSN não encontrado na base de dados de referência local.'
+    // Tenta buscar no SciELO antes de dar como Não Classificado
+    if (normalized) {
+      const scieloData = await fetchSciELOFromAPI(normalized);
+      if (scieloData.scielo) {
+        dbRecord = {
+          title: scieloData.title || 'Periódico da Rede SciELO',
+          area: scieloData.revenf ? 'Enfermagem' : 'Outras Áreas',
+          jcr: null,
+          citeScore: null,
+          indexers: ['SCIELO'],
+          metrics: { cuiden: null }
+        };
+        if (scieloData.revenf) {
+          dbRecord.indexers.push('RevEnf');
+        }
+        // Registra no banco em memória para consultas subsequentes
+        db[normalized] = dbRecord;
       }
-    };
+    }
+
+    if (!dbRecord) {
+      return {
+        issn: normalized || rawIssn || 'N/A',
+        title: 'Periódico Não Identificado na Base',
+        area: 'Outras Áreas',
+        jcr: null,
+        citeScore: null,
+        indexers: [],
+        metrics: { cuiden: null },
+        classification: {
+          estrato: 'NC',
+          justification: 'ISSN não encontrado na base de dados de referência local nem no SciELO.'
+        }
+      };
+    }
+  }
+
+  // Se o periódico não possui indexação SciELO ou RevEnf registrada localmente, consulta a API
+  const localIndexers = (dbRecord.indexers || []).map(idx => idx.toUpperCase());
+  if (normalized && !localIndexers.includes('SCIELO') && !localIndexers.includes('REVENF')) {
+    const scieloData = await fetchSciELOFromAPI(normalized);
+    if (scieloData.scielo) {
+      if (!dbRecord.indexers) dbRecord.indexers = [];
+      if (!dbRecord.indexers.includes('SCIELO')) {
+        dbRecord.indexers.push('SCIELO');
+      }
+      if (scieloData.revenf && !dbRecord.indexers.includes('RevEnf')) {
+        dbRecord.indexers.push('RevEnf');
+        dbRecord.area = 'Enfermagem'; // Coleção RevEnf garante área de Enfermagem
+      }
+      console.log(`[SciELO API] ${normalized} atualizado: SciELO=${scieloData.scielo}, RevEnf=${scieloData.revenf}`);
+    }
   }
 
   // Se CiteScore não existe no banco local, busca da API sob demanda

@@ -42,8 +42,64 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_citescore(parsed.path)
             return
 
+        # Rota de proxy: /api/scielo/XXXX-XXXX
+        if parsed.path.startswith("/api/scielo/"):
+            self.handle_scielo(parsed.path)
+            return
+
         # Arquivos estáticos (comportamento padrão)
         super().do_GET()
+
+    def handle_scielo(self, path):
+        """Proxy para a API SciELO ArticleMeta."""
+        issn = path.replace("/api/scielo/", "").strip("/")
+
+        if not issn or len(issn) < 8:
+            self.send_json(400, {"error": "ISSN invalido"})
+            return
+
+        cache_key = f"scielo_{issn}"
+        # Cache hit
+        if cache_key in _session_cache:
+            self.send_json(200, _session_cache[cache_key])
+            return
+
+        # Chamar API SciELO ArticleMeta
+        url = f"https://articlemeta.scielo.org/api/v1/journal/?issn={issn}"
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json"
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                
+                scielo = len(data) > 0
+                revenf = any(item.get("collection") == "rve" for item in data) if isinstance(data, list) else False
+                
+                title = None
+                if scielo and isinstance(data, list):
+                    v100 = data[0].get("v100")
+                    if v100 and isinstance(v100, list) and len(v100) > 0:
+                        title = v100[0].get("_")
+                
+                result = {"scielo": scielo, "revenf": revenf, "title": title, "status": "ok"}
+                _session_cache[cache_key] = result
+                self.send_json(200, result)
+
+        except urllib.error.HTTPError as e:
+            self.send_json(502, {
+                "error": f"SciELO API error: {e.code}",
+                "scielo": False,
+                "revenf": False
+            })
+
+        except (urllib.error.URLError, TimeoutError):
+            self.send_json(504, {
+                "error": "Timeout ao consultar API SciELO",
+                "scielo": False,
+                "revenf": False
+            })
 
     def handle_citescore(self, path):
         """Proxy para a API Elsevier Serial Title."""
