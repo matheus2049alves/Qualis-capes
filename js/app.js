@@ -9,13 +9,16 @@ import { runTests } from './tests.js';
 // Estado da Aplicação
 const appState = {
   classifiedItems: [], // Itens atualmente mostrados na tabela de resultados
-  dbSummary: { total: 0, items: [] }
+  dbSummary: { total: 0, items: [] },
+  charts: {
+    qualis: null,
+    indexers: null
+  }
 };
 
 // Elementos do DOM
 const dom = {
   dbStatus: document.getElementById('db-status'),
-  dbPreviewList: document.getElementById('db-preview-list'),
   
   singleIssnForm: document.getElementById('single-issn-form'),
   singleIssnInput: document.getElementById('single-issn-input'),
@@ -36,10 +39,15 @@ const dom = {
   
   themeToggle: document.getElementById('theme-toggle'),
   
-  testsSummary: document.getElementById('tests-summary'),
-  testsGrid: document.getElementById('tests-results-grid'),
-  passedCount: document.getElementById('passed-count'),
-  failedCount: document.getElementById('failed-count')
+  // Elementos do novo Dashboard
+  emptyState: document.getElementById('empty-state'),
+  analyticsResults: document.getElementById('analytics-results'),
+  kpiTotal: document.getElementById('kpi-total'),
+  kpiMaxJcr: document.getElementById('kpi-max-jcr'),
+  kpiMaxCitescore: document.getElementById('kpi-max-citescore'),
+  kpiPercentIndexed: document.getElementById('kpi-percent-indexed'),
+  qualisChart: document.getElementById('qualis-chart'),
+  indexersChart: document.getElementById('indexers-chart')
 };
 
 /**
@@ -62,6 +70,11 @@ function setupEventListeners() {
     dom.themeToggle.innerHTML = isLight 
       ? '☀️ Modo Claro' 
       : '🌙 Modo Escuro';
+    
+    // Atualiza gráficos se houver dados ativos, para refletir mudança de fontes/linhas de grade
+    if (appState.classifiedItems.length > 0) {
+      updateAnalytics();
+    }
   });
 
   // Envio de ISSN Individual
@@ -86,7 +99,6 @@ function setupEventListeners() {
     if (!batchText) return;
 
     showLoadingState();
-    // Divide por nova linha, vírgula, ponto e vírgula ou espaço
     const rawIssns = batchText.split(/[\n,;\s]+/).map(i => i.trim()).filter(i => i !== '');
     
     for (const rawIssn of rawIssns) {
@@ -163,10 +175,7 @@ async function initDatabase() {
     }));
 
     // Atualiza o Badge de Status
-    dom.dbStatus.textContent = `Banco Ativo (${appState.dbSummary.total} revistas)`;
-    
-    // Renderiza uma lista resumida das revistas no painel lateral
-    renderDatabasePreview();
+    dom.dbStatus.textContent = `Base Conectada (${appState.dbSummary.total} revistas)`;
   } catch (error) {
     dom.dbStatus.textContent = 'Erro ao carregar banco';
     dom.dbStatus.style.background = 'var(--error-bg)';
@@ -175,61 +184,31 @@ async function initDatabase() {
 }
 
 /**
- * Inicializa a exibição de Testes Unitários
+ * Inicializa e executa silenciosamente os Testes Unitários de Diagnóstico (exibindo no console)
  */
 function initUnitTests() {
-  const results = runTests();
-  const passed = results.filter(r => r.passed);
-  const failed = results.filter(r => !r.passed);
+  try {
+    const results = runTests();
+    const passed = results.filter(r => r.passed);
+    const failed = results.filter(r => !r.passed);
 
-  dom.passedCount.textContent = passed.length;
-  dom.failedCount.textContent = failed.length;
-
-  dom.testsGrid.innerHTML = '';
-  results.forEach(test => {
-    const card = document.createElement('div');
-    card.className = `test-card ${test.passed ? 'passed' : 'failed'}`;
+    console.group('🩺 Diagnóstico do Motor de Regras Qualis CAPES');
+    console.info(`🟢 Testes que passaram: ${passed.length}/${results.length}`);
     
-    card.innerHTML = `
-      <div class="test-header">
-        <span>${test.name}</span>
-        <span class="test-status ${test.passed ? 'passed' : 'failed'}">${test.passed ? 'Passou' : 'Falhou'}</span>
-      </div>
-      <div>Esperado: <strong>${test.expected}</strong> | Obtido: <strong>${test.actual}</strong></div>
-      <div class="text-muted" style="font-size: 11px;">Métrica: ${test.justification}</div>
-    `;
-    dom.testsGrid.appendChild(card);
-  });
-}
-
-/**
- * Renderiza a visualização das revistas cadastradas no banco de dados local
- */
-function renderDatabasePreview() {
-  dom.dbPreviewList.innerHTML = '';
-  
-  // Mostra as primeiras 30 revistas cadastradas
-  const itemsToShow = appState.dbSummary.items.slice(0, 30);
-  
-  itemsToShow.forEach(item => {
-    const el = document.createElement('div');
-    el.className = 'db-item';
-    
-    const details = [];
-    if (item.jcr !== null) details.push(`JCR: ${item.jcr}`);
-    if (item.citeScore !== null) details.push(`CS: ${item.citeScore}`);
-    
-    el.innerHTML = `
-      <div class="db-item-title" title="${item.title}">${item.title}</div>
-      <div class="db-item-details">${item.issn} | ${item.area} ${details.length > 0 ? '(' + details.join(', ') + ')' : ''}</div>
-    `;
-    dom.dbPreviewList.appendChild(el);
-  });
+    if (failed.length > 0) {
+      console.error(`🔴 Testes que falharam: ${failed.length}/${results.length}`);
+      console.table(failed);
+    } else {
+      console.info('Sucesso Absoluto: Todos os cenários de classificação da CAPES passaram com 100% de exatidão!');
+    }
+    console.groupEnd();
+  } catch (err) {
+    console.error('Falha crítica ao executar a suíte de testes unitários:', err);
+  }
 }
 
 /**
  * Lê e processa o arquivo CSV inserido pelo usuário
- * @param {File} file Arquivo carregado
  */
 function handleUploadedFile(file) {
   const reader = new FileReader();
@@ -244,7 +223,6 @@ function handleUploadedFile(file) {
     for (const record of records) {
       const classified = await enrichAndClassify(record.issn);
       
-      // Se tivermos um título no CSV que seja mais relevante do que o genérico do mock do enriquecedor, mantemos
       if (record.title && record.title !== 'Artigo Importado' && classified.title === 'Periódico Não Identificado na Base') {
         classified.title = record.title;
       } else if (record.title && record.title !== 'Artigo Importado' && classified.title) {
@@ -265,17 +243,13 @@ function handleUploadedFile(file) {
 
 /**
  * Adiciona um item classificado ao estado se ele já não existir
- * para evitar duplicações na tela na mesma sessão.
- * @param {Object} item 
  */
 function addClassifiedItem(item) {
-  // Evita duplicar exatamente o mesmo ISSN de forma desnecessária
   const index = appState.classifiedItems.findIndex(existing => existing.issn === item.issn && existing.title === item.title);
   if (index !== -1) {
-    // Atualiza o item se já existir
     appState.classifiedItems[index] = item;
   } else {
-    appState.classifiedItems.unshift(item); // Adiciona no início da lista
+    appState.classifiedItems.unshift(item);
   }
 }
 
@@ -295,26 +269,274 @@ function getFilteredItems() {
 }
 
 /**
+ * Recalcula métricas (KPIs) e atualiza gráficos dinamicamente
+ */
+function updateAnalytics() {
+  const items = appState.classifiedItems;
+  
+  if (items.length === 0) {
+    dom.emptyState.style.display = 'flex';
+    dom.analyticsResults.style.display = 'none';
+    
+    // Destrói instâncias ativas do Chart.js
+    if (appState.charts.qualis) {
+      appState.charts.qualis.destroy();
+      appState.charts.qualis = null;
+    }
+    if (appState.charts.indexers) {
+      appState.charts.indexers.destroy();
+      appState.charts.indexers = null;
+    }
+    return;
+  }
+
+  dom.emptyState.style.display = 'none';
+  dom.analyticsResults.style.display = 'block';
+
+  // 1. Calcular KPIs
+  const total = items.length;
+  dom.kpiTotal.textContent = total;
+
+  let maxJcr = -1;
+  let maxCiteScore = -1;
+  let indexedCount = 0;
+
+  items.forEach(item => {
+    if (item.jcr !== null && item.jcr > maxJcr) {
+      maxJcr = item.jcr;
+    }
+    if (item.citeScore !== null && item.citeScore > maxCiteScore) {
+      maxCiteScore = item.citeScore;
+    }
+    // Verifica indexadores de qualidade
+    const indexers = (item.indexers || []).map(idx => idx.toUpperCase());
+    const hasJcr = item.jcr !== null && item.jcr > 0;
+    if (indexers.includes('SCIELO') || indexers.includes('MEDLINE') || indexers.includes('SCOPUS') || hasJcr) {
+      indexedCount++;
+    }
+  });
+
+  dom.kpiMaxJcr.textContent = maxJcr >= 0 ? maxJcr.toFixed(2) : '-';
+  dom.kpiMaxCitescore.textContent = maxCiteScore >= 0 ? maxCiteScore.toFixed(2) : '-';
+  
+  const percentIndexed = total > 0 ? Math.round((indexedCount / total) * 100) : 0;
+  dom.kpiPercentIndexed.textContent = `${percentIndexed}%`;
+
+  // 2. Coletar dados para os gráficos
+  const qualisCounts = { A1: 0, A2: 0, A3: 0, A4: 0, A5: 0, A6: 0, A7: 0, A8: 0, NC: 0 };
+  items.forEach(item => {
+    const estrato = item.classification.estrato;
+    if (qualisCounts[estrato] !== undefined) {
+      qualisCounts[estrato]++;
+    } else {
+      qualisCounts.NC++;
+    }
+  });
+
+  const indexerCounts = { 'SciELO': 0, 'Medline': 0, 'Scopus': 0, 'JCR (WoS)': 0, 'Latindex': 0, 'RIC/CUIDEN': 0 };
+  items.forEach(item => {
+    const indexers = (item.indexers || []).map(idx => idx.toUpperCase());
+    if (indexers.includes('SCIELO')) indexerCounts['SciELO']++;
+    if (indexers.includes('MEDLINE')) indexerCounts['Medline']++;
+    if (indexers.includes('SCOPUS')) indexerCounts['Scopus']++;
+    if (item.jcr !== null && item.jcr > 0) indexerCounts['JCR (WoS)']++;
+    if (indexers.includes('LATINDEX')) indexerCounts['Latindex']++;
+    if (indexers.includes('CUIDEN') || indexers.includes('RIC/CUIDEN') || indexers.includes('RIC')) indexerCounts['RIC/CUIDEN']++;
+  });
+
+  // 3. Renderizar gráficos
+  renderQualisChart(qualisCounts);
+  renderIndexersChart(indexerCounts);
+}
+
+/**
+ * Renderiza o gráfico Donut de distribuição de Qualis
+ */
+function renderQualisChart(counts) {
+  const canvas = dom.qualisChart;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  if (appState.charts.qualis) {
+    appState.charts.qualis.destroy();
+  }
+
+  const labels = [];
+  const data = [];
+  const colors = [];
+
+  const colorMapping = {
+    A1: '#f59e0b',
+    A2: '#94a3b8',
+    A3: '#b7791f',
+    A4: '#db2777',
+    A5: '#1d4ed8',
+    A6: '#0891b2',
+    A7: '#0f766e',
+    A8: '#047857',
+    NC: '#4b5563'
+  };
+
+  Object.entries(counts).forEach(([key, val]) => {
+    if (val > 0) {
+      labels.push(`Qualis ${key}`);
+      data.push(val);
+      colors.push(colorMapping[key]);
+    }
+  });
+
+  if (data.length === 0) return;
+
+  const isDark = !document.body.classList.contains('light-theme');
+
+  appState.charts.qualis = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: isDark ? 2 : 1,
+        borderColor: isDark ? '#0b0f19' : '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: isDark ? '#f3f4f6' : '#0f172a',
+            font: { family: 'Outfit', size: 12, weight: '500' }
+          }
+        },
+        tooltip: {
+          backgroundColor: isDark ? '#111827' : '#ffffff',
+          titleColor: isDark ? '#f3f4f6' : '#0f172a',
+          bodyColor: isDark ? '#9ca3af' : '#475569',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0,0,0,0.1)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: function(context) {
+              const val = context.raw;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percent = Math.round((val / total) * 100);
+              return ` ${context.label}: ${val} (${percent}%)`;
+            }
+          }
+        }
+      },
+      cutout: '65%'
+    }
+  });
+}
+
+/**
+ * Renderiza o gráfico de barras horizontais de indexadores
+ */
+function renderIndexersChart(counts) {
+  const canvas = dom.indexersChart;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  if (appState.charts.indexers) {
+    appState.charts.indexers.destroy();
+  }
+
+  // Filtrar categorias que possuem ao menos 1 item para manter o gráfico focado
+  const labels = [];
+  const data = [];
+
+  Object.entries(counts).forEach(([key, val]) => {
+    if (val > 0) {
+      labels.push(key);
+      data.push(val);
+    }
+  });
+
+  if (data.length === 0) return;
+
+  const isDark = !document.body.classList.contains('light-theme');
+
+  appState.charts.indexers = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Periódicos',
+        data: data,
+        backgroundColor: 'rgba(99, 102, 241, 0.75)',
+        hoverBackgroundColor: '#6366f1',
+        borderRadius: 6,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? '#111827' : '#ffffff',
+          titleColor: isDark ? '#f3f4f6' : '#0f172a',
+          bodyColor: isDark ? '#9ca3af' : '#475569',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0,0,0,0.1)',
+          borderWidth: 1,
+          padding: 10
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
+          ticks: {
+            color: isDark ? '#9ca3af' : '#475569',
+            stepSize: 1,
+            precision: 0
+          }
+        },
+        y: {
+          grid: { display: false },
+          ticks: {
+            color: isDark ? '#f3f4f6' : '#0f172a',
+            font: { family: 'Outfit', size: 12, weight: '500' }
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
  * Renderiza a Tabela de Resultados
  */
 function renderResultsTable() {
   const filtered = getFilteredItems();
   
+  // Sempre atualiza os KPIs e gráficos com base na lista geral da sessão
+  updateAnalytics();
+
   dom.resultsTableBody.innerHTML = '';
   
-  if (filtered.length === 0) {
-    dom.resultsTableBody.innerHTML = `
-      <tr>
-        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          Nenhum artigo processado ou correspondente aos filtros aplicados.
-        </td>
-      </tr>
-    `;
+  if (appState.classifiedItems.length === 0) {
     dom.resultsContainer.style.display = 'none';
     return;
   }
 
   dom.resultsContainer.style.display = 'block';
+
+  if (filtered.length === 0) {
+    dom.resultsTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          Nenhum artigo correspondente aos filtros aplicados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
 
   filtered.forEach(item => {
     const row = document.createElement('tr');
@@ -324,7 +546,7 @@ function renderResultsTable() {
 
     row.innerHTML = `
       <td>
-        <div style="font-weight: 500; color: var(--text-primary); max-width: 250px; overflow: hidden; text-overflow: ellipsis;">
+        <div style="font-weight: 500; color: var(--text-primary); max-width: 250px; overflow: hidden; text-overflow: ellipsis;" title="${item.title}">
           ${item.title}
         </div>
       </td>
@@ -343,13 +565,11 @@ function renderResultsTable() {
         </div>
       </td>
       <td>
-        <span class="estrato-badge ${item.classification.estrato}">
-          ${item.classification.estrato}
-        </span>
-      </td>
-      <td>
-        <div class="justification-cell">
-          ${item.classification.justification}
+        <div class="estrato-badge-container" data-tooltip="${item.classification.justification}">
+          <span class="estrato-badge ${item.classification.estrato}">
+            ${item.classification.estrato}
+          </span>
+          <span style="margin-left: 6px; font-size: 11px; cursor: help; color: var(--text-muted);">ℹ️</span>
         </div>
       </td>
     `;
