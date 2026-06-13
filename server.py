@@ -13,6 +13,7 @@ import http.server
 import urllib.request
 import urllib.error
 from urllib.parse import urlparse
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -24,8 +25,53 @@ API_KEY = os.environ.get("ELSEVIER_API_KEY", "")
 ELSEVIER_BASE = "https://api.elsevier.com/content/serial/title/issn"
 PORT = int(os.environ.get("PORT", 8080))
 
-# Cache em memória para evitar chamadas repetidas na mesma sessão
+# Cache em memória para evitar chamadas repetidas na mesma sessão (CiteScore/Elsevier)
 _session_cache = {}
+
+# Caches em disco persistentes para indexadores (validade de 30 dias)
+SCIELO_CACHE_PATH = os.path.join(PROJECT_ROOT, "data", "scielo_cache.json")
+LILACS_CACHE_PATH = os.path.join(PROJECT_ROOT, "data", "lilacs_cache.json")
+LATINDEX_CACHE_PATH = os.path.join(PROJECT_ROOT, "data", "latindex_cache.json")
+
+def load_json_cache(path):
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[AVISO] Erro ao carregar cache do arquivo {path}: {e}")
+    return {}
+
+_scielo_cache = load_json_cache(SCIELO_CACHE_PATH)
+_lilacs_cache = load_json_cache(LILACS_CACHE_PATH)
+_latindex_cache = load_json_cache(LATINDEX_CACHE_PATH)
+
+def save_json_cache(path, data):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[ERRO] Falha ao salvar cache no arquivo {path}: {e}")
+
+def check_cache_validity(cache_dict, key):
+    """Retorna o registro se estiver no cache e tiver menos de 30 dias. Caso contrario, None."""
+    entry = cache_dict.get(key)
+    if not entry:
+        return None
+    
+    updated_at_str = entry.get("updated_at")
+    if not updated_at_str:
+        return None
+        
+    try:
+        updated_at = datetime.strptime(updated_at_str, "%Y-%m-%d")
+        delta = datetime.now() - updated_at
+        if delta.days < 30:
+            return entry
+    except ValueError:
+        pass
+    return None
 
 
 class QualisHandler(http.server.SimpleHTTPRequestHandler):
@@ -47,27 +93,38 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_scielo(parsed.path)
             return
 
+        # Rota de proxy: /api/lilacs/XXXX-XXXX
+        if parsed.path.startswith("/api/lilacs/"):
+            self.handle_lilacs(parsed.path)
+            return
+
+        # Rota de proxy: /api/latindex/XXXX-XXXX
+        if parsed.path.startswith("/api/latindex/"):
+            self.handle_latindex(parsed.path)
+            return
+
         # Arquivos estáticos (comportamento padrão)
         super().do_GET()
 
     def handle_scielo(self, path):
-        """Proxy para a API SciELO ArticleMeta."""
+        """Proxy para a API SciELO ArticleMeta com cache persistente de 30 dias."""
         issn = path.replace("/api/scielo/", "").strip("/")
 
         if not issn or len(issn) < 8:
             self.send_json(400, {"error": "ISSN invalido"})
             return
 
-        cache_key = f"scielo_{issn}"
-        # Cache hit
-        if cache_key in _session_cache:
-            self.send_json(200, _session_cache[cache_key])
+        # Verifica cache em disco
+        cached = check_cache_validity(_scielo_cache, issn)
+        if cached:
+            self.send_json(200, cached)
             return
 
         # Chamar API SciELO ArticleMeta
         url = f"https://articlemeta.scielo.org/api/v1/journal/?issn={issn}"
         req = urllib.request.Request(url, headers={
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.5"
         })
 
         try:
@@ -83,22 +140,165 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
                     if v100 and isinstance(v100, list) and len(v100) > 0:
                         title = v100[0].get("_")
                 
-                result = {"scielo": scielo, "revenf": revenf, "title": title, "status": "ok"}
-                _session_cache[cache_key] = result
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                result = {
+                    "scielo": scielo, 
+                    "revenf": revenf, 
+                    "title": title, 
+                    "updated_at": today_str,
+                    "status": "ok"
+                }
+                
+                # Salva no cache persistente
+                _scielo_cache[issn] = result
+                save_json_cache(SCIELO_CACHE_PATH, _scielo_cache)
+                
                 self.send_json(200, result)
 
         except urllib.error.HTTPError as e:
             self.send_json(502, {
                 "error": f"SciELO API error: {e.code}",
                 "scielo": False,
-                "revenf": False
+                "revenf": False,
+                "updated_at": None
             })
 
         except (urllib.error.URLError, TimeoutError):
             self.send_json(504, {
                 "error": "Timeout ao consultar API SciELO",
                 "scielo": False,
-                "revenf": False
+                "revenf": False,
+                "updated_at": None
+            })
+
+    def handle_lilacs(self, path):
+        """Proxy para a API LILACS com cache persistente de 30 dias."""
+        issn = path.replace("/api/lilacs/", "").strip("/")
+
+        if not issn or len(issn) < 8:
+            self.send_json(400, {"error": "ISSN invalido"})
+            return
+
+        # Verifica cache em disco
+        cached = check_cache_validity(_lilacs_cache, issn)
+        if cached:
+            self.send_json(200, cached)
+            return
+
+        # Chamar API LILACS
+        url = f"https://lilacs.bvsalud.org/wp-json/test/v1/bvs/journals/search?q={issn}"
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.5"
+        })
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                raw_data = json.loads(resp.read().decode("utf-8"))
+                
+                response_data = raw_data.get("data", {}).get("diaServerResponse", [{}])[0].get("response", {})
+                num_found = response_data.get("numFound", 0)
+                docs = response_data.get("docs", [])
+                
+                lilacs = num_found >= 1
+                title = None
+                if lilacs and len(docs) > 0:
+                    title = docs[0].get("title")
+                
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                result = {
+                    "lilacs": lilacs,
+                    "title": title,
+                    "updated_at": today_str,
+                    "status": "ok"
+                }
+                
+                # Salva no cache persistente
+                _lilacs_cache[issn] = result
+                save_json_cache(LILACS_CACHE_PATH, _lilacs_cache)
+                
+                self.send_json(200, result)
+
+        except urllib.error.HTTPError as e:
+            self.send_json(502, {
+                "error": f"LILACS API error: {e.code}",
+                "lilacs": False,
+                "updated_at": None
+            })
+
+        except (urllib.error.URLError, TimeoutError):
+            self.send_json(504, {
+                "error": "Timeout ao consultar API LILACS",
+                "lilacs": False,
+                "updated_at": None
+            })
+
+    def handle_latindex(self, path):
+        """Proxy para o portal Latindex com cache persistente de 30 dias."""
+        issn = path.replace("/api/latindex/", "").strip("/")
+
+        if not issn or len(issn) < 8:
+            self.send_json(400, {"error": "ISSN invalido"})
+            return
+
+        # Verifica cache em disco
+        cached = check_cache_validity(_latindex_cache, issn)
+        if cached:
+            self.send_json(200, cached)
+            return
+
+        # Chamar portal Latindex (búsqueda avanzada)
+        # Se usar idMod=0 (Directorio), buscamos em todas as revistas registradas
+        url = f"https://www.latindex.org/latindex/bAvanzada/resultado?idMod=0&send=Buscar&issn={issn}"
+        req = urllib.request.Request(url, headers={
+            "Accept": "text/html,application/xhtml+xml,application/xml",
+            "User-Agent": "Mozilla/5.5"
+        })
+
+        try:
+            import re
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+                
+                # Checa se foi encontrado pelo termo "Resultado:&nbsp;0&nbsp;Revistas"
+                has_zero_results = "Resultado:&nbsp;0&nbsp;Revistas" in html
+                has_results = "Resultado:&nbsp;" in html and not has_zero_results
+                
+                latindex = has_results
+                title = None
+                if latindex:
+                    # Extrai o título se possível usando regex
+                    # href="https://www.latindex.org/latindex/ficha/\d+">TITLE</a>
+                    match = re.search(r'href="https://www\.latindex\.org/latindex/ficha/\d+"[^>]*>\s*([^<]+?)\s*</a>', html)
+                    if match:
+                        title = match.group(1).strip()
+
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                result = {
+                    "latindex": latindex,
+                    "title": title,
+                    "updated_at": today_str,
+                    "status": "ok"
+                }
+
+                # Salva no cache persistente
+                _latindex_cache[issn] = result
+                save_json_cache(LATINDEX_CACHE_PATH, _latindex_cache)
+
+                self.send_json(200, result)
+
+        except urllib.error.HTTPError as e:
+            self.send_json(502, {
+                "error": f"Latindex portal error: {e.code}",
+                "latindex": False,
+                "updated_at": None
+            })
+
+        except (urllib.error.URLError, TimeoutError):
+            self.send_json(504, {
+                "error": "Timeout ao consultar portal Latindex",
+                "latindex": False,
+                "updated_at": None
             })
 
     def handle_citescore(self, path):

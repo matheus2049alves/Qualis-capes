@@ -510,6 +510,20 @@ function renderIndexersChart(counts) {
 }
 
 /**
+ * Formata uma data no formato YYYY-MM-DD para DD/MM/YYYY.
+ * @param {string} dateStr String contendo a data
+ * @returns {string} Data formatada ou string vazia
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
+/**
  * Renderiza a Tabela de Resultados
  */
 function renderResultsTable() {
@@ -541,7 +555,19 @@ function renderResultsTable() {
   filtered.forEach(item => {
     const row = document.createElement('tr');
     
-    const indexersTags = item.indexers.map(idx => `<span class="indexer-tag">${idx}</span>`).join('');
+    const indexersTags = item.indexers.map(idx => {
+      const upperIdx = idx.toUpperCase();
+      if (upperIdx === 'SCIELO' && item.scieloUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de SciELO em ${formatDate(item.scieloUpdatedAt)}">${idx}</span>`;
+      }
+      if (upperIdx === 'LILACS' && item.lilacsUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de LILACS em ${formatDate(item.lilacsUpdatedAt)}">${idx}</span>`;
+      }
+      if (upperIdx === 'LATINDEX' && item.latindexUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de Latindex em ${formatDate(item.latindexUpdatedAt)}">${idx}</span>`;
+      }
+      return `<span class="indexer-tag">${idx}</span>`;
+    }).join('');
     const cuidenVal = (item.metrics && item.metrics.cuiden) ? item.metrics.cuiden : null;
 
     row.innerHTML = `

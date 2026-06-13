@@ -94,24 +94,58 @@ async function fetchCiteScoreFromAPI(issn) {
 /**
  * Busca indexações no SciELO e RevEnf via API SciELO (proxy local).
  * @param {string} issn ISSN normalizado (XXXX-XXXX)
- * @returns {Promise<{scielo: boolean, revenf: boolean, title: string|null}>}
+ * @returns {Promise<{scielo: boolean, revenf: boolean, title: string|null, updated_at: string|null}>}
  */
 async function fetchSciELOFromAPI(issn) {
   try {
     const response = await fetch(`/api/scielo/${issn}`);
-    if (!response.ok) return { scielo: false, revenf: false, title: null };
+    if (!response.ok) return { scielo: false, revenf: false, title: null, updated_at: null };
     
     return await response.json();
   } catch (error) {
     console.warn(`[SciELO API] Falha para ${issn}:`, error.message);
-    return { scielo: false, revenf: false, title: null };
+    return { scielo: false, revenf: false, title: null, updated_at: null };
+  }
+}
+
+/**
+ * Busca indexações no LILACS via API LILACS (proxy local).
+ * @param {string} issn ISSN normalizado (XXXX-XXXX)
+ * @returns {Promise<{lilacs: boolean, title: string|null, updated_at: string|null}>}
+ */
+async function fetchLILACSFromAPI(issn) {
+  try {
+    const response = await fetch(`/api/lilacs/${issn}`);
+    if (!response.ok) return { lilacs: false, title: null, updated_at: null };
+    
+    return await response.json();
+  } catch (error) {
+    console.warn(`[LILACS API] Falha para ${issn}:`, error.message);
+    return { lilacs: false, title: null, updated_at: null };
+  }
+}
+
+/**
+ * Busca indexações no Latindex via portal Latindex (proxy local).
+ * @param {string} issn ISSN normalizado (XXXX-XXXX)
+ * @returns {Promise<{latindex: boolean, title: string|null, updated_at: string|null}>}
+ */
+async function fetchLatindexFromAPI(issn) {
+  try {
+    const response = await fetch(`/api/latindex/${issn}`);
+    if (!response.ok) return { latindex: false, title: null, updated_at: null };
+    
+    return await response.json();
+  } catch (error) {
+    console.warn(`[Latindex API] Falha para ${issn}:`, error.message);
+    return { latindex: false, title: null, updated_at: null };
   }
 }
 
 /**
  * Consulta os dados de um periódico pelo ISSN e aplica a classificação.
  * Se o CiteScore não existe no banco local, busca da API Elsevier sob demanda.
- * Também consulta a API SciELO se a indexação local estiver ausente.
+ * Também consulta as APIs SciELO, LILACS e Latindex se as indexações locais estiverem ausentes.
  * @param {string} rawIssn ISSN digitado ou importado
  * @returns {Promise<Object>} Dados consolidados da revista e classificação
  */
@@ -120,23 +154,42 @@ export async function enrichAndClassify(rawIssn) {
   const normalized = normalizeISSN(rawIssn);
   
   let dbRecord = db[normalized];
-
+  
   if (!dbRecord) {
-    // Tenta buscar no SciELO antes de dar como Não Classificado
+    // Tenta buscar no SciELO, LILACS ou Latindex antes de dar como Não Classificado
     if (normalized) {
-      const scieloData = await fetchSciELOFromAPI(normalized);
-      if (scieloData.scielo) {
+      const [scieloData, lilacsData, latindexData] = await Promise.all([
+        fetchSciELOFromAPI(normalized),
+        fetchLILACSFromAPI(normalized),
+        fetchLatindexFromAPI(normalized)
+      ]);
+
+      if (scieloData.scielo || lilacsData.lilacs || latindexData.latindex) {
         dbRecord = {
-          title: scieloData.title || 'Periódico da Rede SciELO',
+          title: scieloData.title || lilacsData.title || latindexData.title || 'Periódico da Rede BVS/SciELO/Latindex',
           area: scieloData.revenf ? 'Enfermagem' : 'Outras Áreas',
           jcr: null,
           citeScore: null,
-          indexers: ['SCIELO'],
+          indexers: [],
           metrics: { cuiden: null }
         };
-        if (scieloData.revenf) {
-          dbRecord.indexers.push('RevEnf');
+        
+        if (scieloData.scielo) {
+          dbRecord.indexers.push('SCIELO');
+          dbRecord.scieloUpdatedAt = scieloData.updated_at;
+          if (scieloData.revenf) {
+            dbRecord.indexers.push('RevEnf');
+          }
         }
+        if (lilacsData.lilacs) {
+          dbRecord.indexers.push('LILACS');
+          dbRecord.lilacsUpdatedAt = lilacsData.updated_at;
+        }
+        if (latindexData.latindex) {
+          dbRecord.indexers.push('LATINDEX');
+          dbRecord.latindexUpdatedAt = latindexData.updated_at;
+        }
+
         // Registra no banco em memória para consultas subsequentes
         db[normalized] = dbRecord;
       }
@@ -153,26 +206,60 @@ export async function enrichAndClassify(rawIssn) {
         metrics: { cuiden: null },
         classification: {
           estrato: 'NC',
-          justification: 'ISSN não encontrado na base de dados de referência local nem no SciELO.'
+          justification: 'ISSN não encontrado na base de dados de referência local nem no SciELO/LILACS/Latindex.'
         }
       };
     }
   }
 
-  // Se o periódico não possui indexação SciELO ou RevEnf registrada localmente, consulta a API
+  // Se o periódico não possui certas indexações localmente, consulta as APIs de enriquecimento em paralelo
   const localIndexers = (dbRecord.indexers || []).map(idx => idx.toUpperCase());
-  if (normalized && !localIndexers.includes('SCIELO') && !localIndexers.includes('REVENF')) {
-    const scieloData = await fetchSciELOFromAPI(normalized);
-    if (scieloData.scielo) {
-      if (!dbRecord.indexers) dbRecord.indexers = [];
-      if (!dbRecord.indexers.includes('SCIELO')) {
-        dbRecord.indexers.push('SCIELO');
-      }
-      if (scieloData.revenf && !dbRecord.indexers.includes('RevEnf')) {
-        dbRecord.indexers.push('RevEnf');
-        dbRecord.area = 'Enfermagem'; // Coleção RevEnf garante área de Enfermagem
-      }
-      console.log(`[SciELO API] ${normalized} atualizado: SciELO=${scieloData.scielo}, RevEnf=${scieloData.revenf}`);
+  if (normalized) {
+    const promises = [];
+    const needSciELO = !localIndexers.includes('SCIELO') && !localIndexers.includes('REVENF');
+    const needLILACS = !localIndexers.includes('LILACS');
+    const needLatindex = !localIndexers.includes('LATINDEX');
+
+    if (needSciELO) {
+      promises.push(fetchSciELOFromAPI(normalized).then(data => ({ type: 'scielo', data })));
+    }
+    if (needLILACS) {
+      promises.push(fetchLILACSFromAPI(normalized).then(data => ({ type: 'lilacs', data })));
+    }
+    if (needLatindex) {
+      promises.push(fetchLatindexFromAPI(normalized).then(data => ({ type: 'latindex', data })));
+    }
+
+    if (promises.length > 0) {
+      const results = await Promise.all(promises);
+      results.forEach(res => {
+        if (res.type === 'scielo' && res.data.scielo) {
+          if (!dbRecord.indexers) dbRecord.indexers = [];
+          if (!dbRecord.indexers.includes('SCIELO')) {
+            dbRecord.indexers.push('SCIELO');
+          }
+          dbRecord.scieloUpdatedAt = res.data.updated_at;
+          if (res.data.revenf && !dbRecord.indexers.includes('RevEnf')) {
+            dbRecord.indexers.push('RevEnf');
+            dbRecord.area = 'Enfermagem'; // Coleção RevEnf garante área de Enfermagem
+          }
+          console.log(`[SciELO API] ${normalized} atualizado: SciELO=${res.data.scielo}, RevEnf=${res.data.revenf}`);
+        } else if (res.type === 'lilacs' && res.data.lilacs) {
+          if (!dbRecord.indexers) dbRecord.indexers = [];
+          if (!dbRecord.indexers.includes('LILACS')) {
+            dbRecord.indexers.push('LILACS');
+          }
+          dbRecord.lilacsUpdatedAt = res.data.updated_at;
+          console.log(`[LILACS API] ${normalized} atualizado: LILACS=${res.data.lilacs}`);
+        } else if (res.type === 'latindex' && res.data.latindex) {
+          if (!dbRecord.indexers) dbRecord.indexers = [];
+          if (!dbRecord.indexers.includes('LATINDEX')) {
+            dbRecord.indexers.push('LATINDEX');
+          }
+          dbRecord.latindexUpdatedAt = res.data.updated_at;
+          console.log(`[Latindex API] ${normalized} atualizado: LATINDEX=${res.data.latindex}`);
+        }
+      });
     }
   }
 
@@ -196,6 +283,10 @@ export async function enrichAndClassify(rawIssn) {
     citeScore: dbRecord.citeScore,
     indexers: dbRecord.indexers || [],
     metrics: dbRecord.metrics || { cuiden: null },
-    classification: classification
+    classification: classification,
+    // Propaga as datas da última consulta oficial para a renderização do front
+    scieloUpdatedAt: dbRecord.scieloUpdatedAt || null,
+    lilacsUpdatedAt: dbRecord.lilacsUpdatedAt || null,
+    latindexUpdatedAt: dbRecord.latindexUpdatedAt || null
   };
 }

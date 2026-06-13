@@ -1,8 +1,8 @@
 # Variáveis de ambiente (contém API keys)
 .env
 
-# Cache de CiteScore (gerado pelo fetch_citescore.py)
-data/citescore_cache.json
+# Caches gerados
+data/*_cache.json
 
 # Node
 node_modules/
