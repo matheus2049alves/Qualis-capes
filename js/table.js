@@ -1,0 +1,123 @@
+/**
+ * Módulo de Renderização da Tabela de Resultados.
+ * Responsável por exibir, filtrar e formatar a tabela de periódicos classificados.
+ */
+
+import dom from './dom.js';
+import appState from './state.js';
+import { getFilteredItems } from './state.js';
+import { escapeHTML } from './utils.js';
+import { updateAnalytics } from './charts.js';
+
+/**
+ * Formata uma data no formato YYYY-MM-DD para DD/MM/YYYY.
+ * @param {string} dateStr String contendo a data
+ * @returns {string} Data formatada ou string vazia
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
+/**
+ * Renderiza a Tabela de Resultados com sanitização XSS.
+ */
+export function renderResultsTable() {
+  const searchVal = dom.searchBox.value;
+  const filterVal = dom.filterEstrato.value;
+  const filtered = getFilteredItems(searchVal, filterVal);
+
+  // Sempre atualiza os KPIs e gráficos com base na lista geral da sessão
+  updateAnalytics();
+
+  dom.resultsTableBody.innerHTML = '';
+
+  if (appState.classifiedItems.length === 0) {
+    dom.resultsContainer.style.display = 'none';
+    return;
+  }
+
+  dom.resultsContainer.style.display = 'block';
+
+  if (filtered.length === 0) {
+    dom.resultsTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          Nenhum artigo correspondente aos filtros aplicados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filtered.forEach(item => {
+    const row = document.createElement('tr');
+
+    // Sanitizar dados externos para prevenir XSS
+    const safeTitle = escapeHTML(item.title);
+    const safeIssn = escapeHTML(item.issn);
+    const safeArea = escapeHTML(item.area);
+    const safeEstrato = escapeHTML(item.classification.estrato);
+    const safeJustification = escapeHTML(item.classification.justification);
+
+    const indexersTags = item.indexers.map(idx => {
+      const safeIdx = escapeHTML(idx);
+      const upperIdx = idx.toUpperCase();
+      if (upperIdx === 'SCIELO' && item.scieloUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de SciELO em ${escapeHTML(formatDate(item.scieloUpdatedAt))}">${safeIdx}</span>`;
+      }
+      if (upperIdx === 'LILACS' && item.lilacsUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de LILACS em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}">${safeIdx}</span>`;
+      }
+      if (upperIdx === 'BDENF' && item.lilacsUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de BDENF em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}">${safeIdx}</span>`;
+      }
+      if (upperIdx === 'LATINDEX' && item.latindexUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de Latindex em ${escapeHTML(formatDate(item.latindexUpdatedAt))}">${safeIdx}</span>`;
+      }
+      return `<span class="indexer-tag">${safeIdx}</span>`;
+    }).join('');
+    const cuidenVal = (item.metrics && item.metrics.cuiden) ? item.metrics.cuiden : null;
+
+    row.innerHTML = `
+      <td>
+        <div style="font-weight: 500; color: var(--text-primary); max-width: 250px; overflow: hidden; text-overflow: ellipsis;" title="${safeTitle}">
+          ${safeTitle}
+        </div>
+      </td>
+      <td style="font-family: monospace; font-size: 13px;">${safeIssn}</td>
+      <td>
+        <span class="area-badge ${safeArea === 'Enfermagem' ? 'enfermagem' : 'outras'}">
+          ${safeArea}
+        </span>
+      </td>
+      <td>${item.jcr !== null ? item.jcr.toFixed(2) : '-'}</td>
+      <td>${item.citeScore !== null ? item.citeScore.toFixed(2) : '-'}</td>
+      <td>
+        <div style="max-width: 200px;">
+          ${indexersTags || '-'}
+          ${cuidenVal !== null ? `<br><span class="indexer-tag">CUIDEN: ${cuidenVal.toFixed(2)}</span>` : ''}
+        </div>
+      </td>
+      <td>
+        <div class="estrato-badge-container" data-tooltip="${safeJustification}">
+          <span class="estrato-badge ${safeEstrato}">
+            ${safeEstrato}
+          </span>
+          <i data-lucide="info" class="info-icon"></i>
+        </div>
+      </td>
+    `;
+
+    dom.resultsTableBody.appendChild(row);
+  });
+
+  // Re-inicializa os ícones Lucide na tabela dinâmica
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}

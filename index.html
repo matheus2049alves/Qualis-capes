@@ -8,8 +8,8 @@
   <meta name="description"
     content="Ferramenta automatizada para enriquecimento de métricas e classificação de periódicos científicos de acordo com as regras da CAPES para Enfermagem e Outras Áreas.">
   <link rel="stylesheet" href="css/styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.469.0" crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -29,7 +29,7 @@
         <div class="header-divider"></div>
         <p class="header-subtitle">Classificador de Artigos (Enfermagem)</p>
       </div>
-      <button id="theme-toggle" class="theme-toggle-btn"><i data-lucide="moon"></i> <span>Modo Escuro</span></button>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar entre modo claro e escuro"><i data-lucide="moon"></i> <span>Modo Escuro</span></button>
     </header>
 
     <!-- Layout Principal de Duas Colunas -->
@@ -181,8 +181,9 @@
               <!-- Barra de Filtros e Busca -->
               <div class="search-filter-bar">
                 <input type="text" id="search-box" class="text-input search-box"
-                  placeholder="Filtrar por Título ou ISSN...">
-                <select id="filter-estrato" class="select-filter">
+                  placeholder="Filtrar por Título ou ISSN..." aria-label="Filtrar por Título ou ISSN">
+                <label for="filter-estrato" class="sr-only">Filtrar por estrato Qualis</label>
+                <select id="filter-estrato" class="select-filter" aria-label="Filtrar por estrato Qualis">
                   <option value="ALL">Todos os Estratos</option>
                   <option value="A1">Qualis A1</option>
                   <option value="A2">Qualis A2</option>
@@ -201,13 +202,13 @@
                 <table class="results-table">
                   <thead>
                     <tr>
-                      <th>Título / Revista</th>
-                      <th>ISSN</th>
-                      <th>Área Encontrada</th>
-                      <th>JCR</th>
-                      <th>CiteScore</th>
-                      <th>Indexadores Ativos</th>
-                      <th>Estrato CAPES</th>
+                      <th scope="col">Título / Revista</th>
+                      <th scope="col">ISSN</th>
+                      <th scope="col">Área Encontrada</th>
+                      <th scope="col">JCR</th>
+                      <th scope="col">CiteScore</th>
+                      <th scope="col">Indexadores Ativos</th>
+                      <th scope="col">Estrato CAPES</th>
                     </tr>
                   </thead>
                   <tbody id="results-table-body">
@@ -231,11 +232,11 @@
   </footer>
 
   <!-- Modal de Seleção de Periódico -->
-  <div id="search-modal" class="search-modal">
+  <div id="search-modal" class="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-modal-title">
     <div class="search-modal-card">
       <div class="search-modal-header">
-        <h3 class="search-modal-title"><i data-lucide="list-filter"></i> Selecione o Periódico</h3>
-        <button id="btn-close-modal" class="btn-close-modal"><i data-lucide="x"></i></button>
+        <h3 id="search-modal-title" class="search-modal-title"><i data-lucide="list-filter"></i> Selecione o Periódico</h3>
+        <button id="btn-close-modal" class="btn-close-modal" aria-label="Fechar modal"><i data-lucide="x"></i></button>
       </div>
       <p class="search-modal-subtitle">Encontramos múltiplos periódicos para a sua busca. Escolha um abaixo para
         classificar:</p>
@@ -246,7 +247,7 @@
   </div>
 
   <!-- Overlay de Carregamento Premium -->
-  <div id="loading-overlay" class="loading-overlay">
+  <div id="loading-overlay" class="loading-overlay" role="alert" aria-live="assertive" aria-label="Carregando">
     <div class="loading-card">
       <div class="premium-spinner-container">
         <div class="premium-spinner"></div>

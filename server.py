@@ -8,6 +8,7 @@ Uso: python server.py
 """
 
 import os
+import re
 import json
 import http.server
 import urllib.request
@@ -24,6 +25,13 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 API_KEY = os.environ.get("ELSEVIER_API_KEY", "")
 ELSEVIER_BASE = "https://api.elsevier.com/content/serial/title/issn"
 PORT = int(os.environ.get("PORT", 8080))
+
+# Padrão regex para validação rigorosa de ISSN (formato: XXXX-XXXX, onde X = dígito ou X final)
+ISSN_PATTERN = re.compile(r'^\d{4}-\d{3}[\dXx]$')
+
+def validate_issn(issn):
+    """Valida que o ISSN está no formato correto (XXXX-XXXX). Previne injeção."""
+    return bool(issn and ISSN_PATTERN.match(issn))
 
 # Cache em memória para evitar chamadas repetidas na mesma sessão (CiteScore/Elsevier)
 _session_cache = {}
@@ -103,15 +111,46 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_latindex(parsed.path)
             return
 
+        # Compressão gzip para arquivos JSON grandes (ex: journals.json ~7.6MB → ~1MB)
+        if parsed.path.endswith('.json'):
+            accept_encoding = self.headers.get('Accept-Encoding', '')
+            if 'gzip' in accept_encoding:
+                self.serve_gzipped_file(parsed.path)
+                return
+
         # Arquivos estáticos (comportamento padrão)
         super().do_GET()
+
+    def serve_gzipped_file(self, path):
+        """Serve um arquivo estático com compressão gzip sob demanda."""
+        import gzip as gzip_mod
+        file_path = os.path.join(PROJECT_ROOT, path.lstrip('/'))
+        if not os.path.isfile(file_path):
+            super().do_GET()
+            return
+
+        try:
+            with open(file_path, 'rb') as f:
+                raw = f.read()
+
+            compressed = gzip_mod.compress(raw)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(compressed)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            self.wfile.write(compressed)
+        except Exception:
+            super().do_GET()
 
     def handle_scielo(self, path):
         """Proxy para a API SciELO ArticleMeta com cache persistente de 30 dias."""
         issn = path.replace("/api/scielo/", "").strip("/")
 
-        if not issn or len(issn) < 8:
-            self.send_json(400, {"error": "ISSN invalido"})
+        if not validate_issn(issn):
+            self.send_json(400, {"error": "ISSN invalido. Formato esperado: XXXX-XXXX"})
             return
 
         # Verifica cache em disco
@@ -175,8 +214,8 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
         """Proxy para a API LILACS com cache persistente de 30 dias, extraindo também o status do BDENF."""
         issn = path.replace("/api/lilacs/", "").strip("/")
 
-        if not issn or len(issn) < 8:
-            self.send_json(400, {"error": "ISSN invalido"})
+        if not validate_issn(issn):
+            self.send_json(400, {"error": "ISSN invalido. Formato esperado: XXXX-XXXX"})
             return
 
         # Verifica cache em disco (exige que o cache antigo contenha 'bdenf' para ser aproveitado)
@@ -250,8 +289,8 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
         """Proxy para o portal Latindex com cache persistente de 30 dias."""
         issn = path.replace("/api/latindex/", "").strip("/")
 
-        if not issn or len(issn) < 8:
-            self.send_json(400, {"error": "ISSN invalido"})
+        if not validate_issn(issn):
+            self.send_json(400, {"error": "ISSN invalido. Formato esperado: XXXX-XXXX"})
             return
 
         # Verifica cache em disco
@@ -318,8 +357,8 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
         """Proxy para a API Elsevier Serial Title."""
         issn = path.replace("/api/citescore/", "").strip("/")
 
-        if not issn or len(issn) < 8:
-            self.send_json(400, {"error": "ISSN invalido"})
+        if not validate_issn(issn):
+            self.send_json(400, {"error": "ISSN invalido. Formato esperado: XXXX-XXXX"})
             return
 
         if not API_KEY:

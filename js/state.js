@@ -1,0 +1,82 @@
+/**
+ * Estado centralizado da aplicação.
+ * Responsável por gerenciar os dados classificados e o resumo do banco de dados.
+ */
+
+const appState = {
+  classifiedItems: [],
+  dbSummary: { total: 0, items: [] },
+  charts: {
+    qualis: null,
+    indexers: null
+  }
+};
+
+/**
+ * Adiciona ou atualiza um item classificado no estado.
+ * Se o item já existir (mesmo ISSN + título), ele é sobrescrito.
+ * @param {Object} item Item classificado retornado pelo enrichAndClassify
+ */
+export function addClassifiedItem(item) {
+  const index = appState.classifiedItems.findIndex(
+    existing => existing.issn === item.issn && existing.title === item.title
+  );
+  if (index !== -1) {
+    appState.classifiedItems[index] = item;
+  } else {
+    appState.classifiedItems.unshift(item);
+  }
+  persistResults();
+}
+
+/**
+ * Limpa todos os itens classificados do estado.
+ */
+export function clearClassifiedItems() {
+  appState.classifiedItems = [];
+  sessionStorage.removeItem('qualis_results');
+}
+
+/**
+ * Retorna os itens classificados aplicando filtros de busca e estrato.
+ * @param {string} searchVal Texto de busca (título ou ISSN)
+ * @param {string} filterVal Estrato selecionado ('ALL' ou 'A1'..'NC')
+ * @returns {Object[]} Itens filtrados
+ */
+export function getFilteredItems(searchVal = '', filterVal = 'ALL') {
+  const search = searchVal.toLowerCase().trim();
+  return appState.classifiedItems.filter(item => {
+    const matchesSearch = item.issn.toLowerCase().includes(search) ||
+      item.title.toLowerCase().includes(search);
+    const matchesFilter = filterVal === 'ALL' || item.classification.estrato === filterVal;
+    return matchesSearch && matchesFilter;
+  });
+}
+
+/**
+ * Persiste os resultados classificados no sessionStorage.
+ */
+function persistResults() {
+  try {
+    sessionStorage.setItem('qualis_results', JSON.stringify(appState.classifiedItems));
+  } catch (e) {
+    // sessionStorage cheio ou indisponível — falha silenciosa aceitável
+    console.warn('[Persistência] Falha ao salvar resultados no sessionStorage:', e.message);
+  }
+}
+
+/**
+ * Restaura os resultados classificados do sessionStorage, se houver.
+ */
+export function restoreResults() {
+  try {
+    const saved = sessionStorage.getItem('qualis_results');
+    if (saved) {
+      appState.classifiedItems = JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn('[Persistência] Falha ao restaurar resultados:', e.message);
+  }
+}
+
+export default appState;

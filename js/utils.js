@@ -209,3 +209,18 @@ export function downloadFile(content, fileName, mimeType) {
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Sanitiza uma string para inserção segura em HTML (previne XSS).
+ * Deve ser usada em TODA renderização de dados externos via innerHTML.
+ * 
+ * IMPORTANTE: Manter sincronizada com qualquer lógica similar no backend.
+ * @param {string} str String a ser sanitizada
+ * @returns {string} String segura para inserção em HTML
+ */
+export function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
