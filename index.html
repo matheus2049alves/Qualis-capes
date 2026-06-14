@@ -40,10 +40,10 @@
           <h2 class="card-title"><i data-lucide="search"></i> Consulta Individual</h2>
           <form id="single-issn-form">
             <div class="form-group">
-              <label for="single-issn-input">Digite o ISSN do Periódico:</label>
-              <input type="text" id="single-issn-input" class="text-input" placeholder="Ex: 0104-1169 ou 0021-9746" required>
+              <label for="single-issn-input">Digite o ISSN ou Nome do Periódico:</label>
+              <input type="text" id="single-issn-input" class="text-input" placeholder="Ex: 0104-1169 ou Revista Latino-Americana de Enfermagem" required>
             </div>
-            <button type="submit" class="btn">Classificar ISSN</button>
+            <button type="submit" class="btn">Classificar Periódico</button>
           </form>
         </div>
 
@@ -189,6 +189,20 @@
   <footer>
     <p>&copy; 2026 - Classificador Qualis CAPES Automatizado. Desenvolvido para auxílio acadêmico.</p>
   </footer>
+
+  <!-- Modal de Seleção de Periódico -->
+  <div id="search-modal" class="search-modal">
+    <div class="search-modal-card">
+      <div class="search-modal-header">
+        <h3 class="search-modal-title"><i data-lucide="list-filter"></i> Selecione o Periódico</h3>
+        <button id="btn-close-modal" class="btn-close-modal"><i data-lucide="x"></i></button>
+      </div>
+      <p class="search-modal-subtitle">Encontramos múltiplos periódicos para a sua busca. Escolha um abaixo para classificar:</p>
+      <div id="search-results-list" class="search-results-list">
+        <!-- Resultados injetados via JS -->
+      </div>
+    </div>
+  </div>
 
   <!-- Overlay de Carregamento Premium -->
   <div id="loading-overlay" class="loading-overlay">

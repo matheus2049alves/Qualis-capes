@@ -53,7 +53,12 @@ const dom = {
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingTitle: document.getElementById('loading-title'),
   loadingSubtitle: document.getElementById('loading-subtitle'),
-  loadingIcon: document.getElementById('loading-icon')
+  loadingIcon: document.getElementById('loading-icon'),
+  
+  // Elementos do Modal de Seleção de Periódicos
+  searchModal: document.getElementById('search-modal'),
+  btnCloseModal: document.getElementById('btn-close-modal'),
+  searchResultsList: document.getElementById('search-results-list')
 };
 
 /**
@@ -91,19 +96,26 @@ function setupEventListeners() {
     }
   });
 
-  // Envio de ISSN Individual
+  // Envio de ISSN/Nome Individual (Busca Híbrida)
   dom.singleIssnForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const rawIssn = dom.singleIssnInput.value.trim();
-    if (!rawIssn) return;
+    const query = dom.singleIssnInput.value.trim();
+    if (!query) return;
 
-    showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
-    const classified = await enrichAndClassify(rawIssn);
-    addClassifiedItem(classified);
+    showLoadingState('Analisando Consulta', 'Verificando formato do termo digitado...', 'search');
     
-    dom.singleIssnInput.value = '';
-    hideLoadingState();
-    renderResultsTable();
+    const normalized = normalizeISSN(query);
+    if (normalized) {
+      // Se for formato ISSN, realiza fluxo normal
+      const classified = await enrichAndClassify(normalized);
+      addClassifiedItem(classified);
+      dom.singleIssnInput.value = '';
+      hideLoadingState();
+      renderResultsTable();
+    } else {
+      // Se for texto/nome da revista, executa busca textual
+      await handleSearchByName(query);
+    }
   });
 
   // Envio de Lote de ISSNs
@@ -170,6 +182,20 @@ function setupEventListeners() {
     const dateStr = new Date().toISOString().slice(0, 10);
     downloadFile(csvContent, `qualis_classificado_${dateStr}.csv`, 'text/csv');
   });
+
+  // Fechar Modal de Busca
+  if (dom.btnCloseModal) {
+    dom.btnCloseModal.addEventListener('click', closeSearchModal);
+  }
+  
+  // Fechar modal ao clicar fora dele
+  if (dom.searchModal) {
+    dom.searchModal.addEventListener('click', (e) => {
+      if (e.target === dom.searchModal) {
+        closeSearchModal();
+      }
+    });
+  }
 }
 
 /**
@@ -687,5 +713,120 @@ function hideLoadingState() {
   document.body.style.cursor = 'default';
   if (dom.loadingOverlay) {
     dom.loadingOverlay.classList.remove('active');
+  }
+}
+
+/**
+ * Trata a busca de periódicos por nome (título)
+ * @param {string} nameQuery Nome buscado
+ */
+async function handleSearchByName(nameQuery) {
+  const queryLower = nameQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  
+  // 1. Filtrar no banco local (já carregado na memória)
+  const matches = appState.dbSummary.items.filter(item => {
+    if (!item.title) return false;
+    const titleClean = item.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return titleClean.includes(queryLower);
+  });
+
+  // Tentar buscar na API do LILACS (BVS) em paralelo caso seja um termo plausível
+  let bvsMatches = [];
+  try {
+    const response = await fetch(`/api/lilacs/${encodeURIComponent(nameQuery)}`);
+    if (response.ok) {
+      const data = await response.json();
+      // Se a BVS retornou resultado válido e possui um ISSN válido
+      if ((data.lilacs || data.bdenf) && data.title && data.issn) {
+        bvsMatches.push({
+          issn: data.issn,
+          title: data.title,
+          area: data.bdenf ? 'Enfermagem' : 'Outras Áreas',
+          isRemote: true
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[Busca Remota por Nome] Falha na API LILACS:", err);
+  }
+
+  // Consolidar resultados locais e remotos
+  let allMatches = [...matches];
+  bvsMatches.forEach(bvsItem => {
+    if (!allMatches.some(m => m.issn === bvsItem.issn)) {
+      allMatches.push(bvsItem);
+    }
+  });
+
+  hideLoadingState();
+
+  if (allMatches.length === 0) {
+    alert('Nenhum periódico encontrado com este nome.');
+    return;
+  }
+
+  if (allMatches.length === 1) {
+    // Apenas um resultado: classifica diretamente
+    showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
+    const classified = await enrichAndClassify(allMatches[0].issn);
+    addClassifiedItem(classified);
+    renderResultsTable();
+    dom.singleIssnInput.value = '';
+    hideLoadingState();
+    return;
+  }
+
+  // Múltiplos resultados: abrir modal de seleção
+  showSearchModal(allMatches);
+}
+
+/**
+ * Exibe o modal com a lista de resultados da busca
+ */
+function showSearchModal(items) {
+  if (!dom.searchResultsList) return;
+  dom.searchResultsList.innerHTML = '';
+
+  items.forEach(item => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'search-result-item';
+    itemEl.innerHTML = `
+      <div class="search-result-info">
+        <div class="search-result-title" title="${item.title}">${item.title}</div>
+        <div class="search-result-meta">${item.area}</div>
+      </div>
+      <div class="search-result-issn">${item.issn}</div>
+    `;
+
+    itemEl.addEventListener('click', async () => {
+      closeSearchModal();
+      showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
+      const classified = await enrichAndClassify(item.issn);
+      addClassifiedItem(classified);
+      renderResultsTable();
+      dom.singleIssnInput.value = '';
+      hideLoadingState();
+    });
+
+    dom.searchResultsList.appendChild(itemEl);
+  });
+
+  if (dom.searchModal) {
+    dom.searchModal.classList.add('active');
+    
+    // Re-inicializa ícones do Lucide no modal se houver
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons({
+        attrs: { class: 'lucide' },
+        nameAttr: 'data-lucide',
+        node: dom.searchModal
+      });
+    }
+  }
+}
+
+function closeSearchModal() {
+  if (dom.searchModal) {
+    dom.searchModal.classList.remove('active');
   }
 }

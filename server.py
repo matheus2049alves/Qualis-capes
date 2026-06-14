@@ -203,16 +203,21 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
                 lilacs = num_found >= 1
                 bdenf = False
                 title = None
+                issn_real = None
                 if lilacs and len(docs) > 0:
                     title = docs[0].get("title")
                     indexed_dbs = docs[0].get("indexed_database", [])
                     bdenf = any("BDENF" in db.upper() for db in indexed_dbs)
+                    issn_list = docs[0].get("issn", [])
+                    if len(issn_list) > 0:
+                        issn_real = issn_list[0]
                 
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 result = {
                     "lilacs": lilacs,
                     "bdenf": bdenf,
                     "title": title,
+                    "issn": issn_real,
                     "updated_at": today_str,
                     "status": "ok"
                 }
@@ -228,6 +233,7 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
                 "error": f"LILACS API error: {e.code}",
                 "lilacs": False,
                 "bdenf": False,
+                "issn": None,
                 "updated_at": None
             })
 
@@ -236,6 +242,7 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
                 "error": "Timeout ao consultar API LILACS",
                 "lilacs": False,
                 "bdenf": False,
+                "issn": None,
                 "updated_at": None
             })
 
