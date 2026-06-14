@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Classificador Qualis CAPES - Enfermagem</title>
-  <meta name="description" content="Ferramenta automatizada para enriquecimento de métricas e classificação de periódicos científicos de acordo com as regras da CAPES para Enfermagem e Outras Áreas.">
+  <meta name="description"
+    content="Ferramenta automatizada para enriquecimento de métricas e classificação de periódicos científicos de acordo com as regras da CAPES para Enfermagem e Outras Áreas.">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+
 <body>
 
   <!-- Gradientes de Fundo Ambientais -->
@@ -18,7 +21,7 @@
   </div>
 
   <div class="container">
-    
+
     <!-- Cabeçalho Principal -->
     <header>
       <div class="logo-container">
@@ -31,42 +34,65 @@
 
     <!-- Layout Principal de Duas Colunas -->
     <div class="main-grid">
-      
+
       <!-- Coluna da Esquerda: Barra Lateral de Ferramentas -->
       <aside class="sidebar">
-        
-        <!-- Consulta Individual -->
-        <div class="card">
-          <h2 class="card-title"><i data-lucide="search"></i> Consulta Individual</h2>
-          <form id="single-issn-form">
-            <div class="form-group">
-              <label for="single-issn-input">Digite o ISSN ou Nome do Periódico:</label>
-              <input type="text" id="single-issn-input" class="text-input" placeholder="Ex: 0104-1169 ou Revista Latino-Americana de Enfermagem" required>
-            </div>
-            <button type="submit" class="btn">Classificar Periódico</button>
-          </form>
-        </div>
 
-        <!-- Entrada em Lote -->
-        <div class="card">
-          <h2 class="card-title"><i data-lucide="layers"></i> Entrada em Lote</h2>
-          <form id="batch-issn-form">
-            <div class="form-group">
-              <label for="batch-issn-input">Insira uma lista de ISSNs (um por linha):</label>
-              <textarea id="batch-issn-input" class="text-input" placeholder="Ex:&#10;0104-1169&#10;0034-7167&#10;0021-9746" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-secondary" style="width: 100%;">Classificar Lote</button>
-          </form>
-        </div>
+        <!-- Card Unificado de Entrada de Dados -->
+        <div class="card sidebar-input-card">
+          <!-- Seletor Segmentado Premium -->
+          <div class="input-selector" style="margin-bottom: 20px;">
+            <button type="button" id="selector-single" class="selector-btn active" title="Consulta Individual">
+              <i data-lucide="search"></i>
+              <span>Individual</span>
+            </button>
+            <button type="button" id="selector-batch" class="selector-btn" title="Consulta em Lote">
+              <i data-lucide="layers"></i>
+              <span>Lote</span>
+            </button>
+            <button type="button" id="selector-upload" class="selector-btn" title="Importar CSV">
+              <i data-lucide="file-spreadsheet"></i>
+              <span>Planilha</span>
+            </button>
+          </div>
 
-        <!-- Upload de Planilha / CSV -->
-        <div class="card">
-          <h2 class="card-title"><i data-lucide="upload"></i> Upload de Planilha (CSV)</h2>
-          <div id="dropzone" class="dropzone">
-            <div class="dropzone-icon"><i data-lucide="file-spreadsheet"></i></div>
-            <p>Arraste e solte seu arquivo <strong>CSV</strong> aqui ou <span class="highlight">clique para selecionar</span></p>
-            <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Recomendado conter uma coluna chamada 'ISSN' (delimitador , ou ;)</p>
-            <input type="file" id="file-input" accept=".csv">
+          <!-- Painel 1: Consulta Individual -->
+          <div id="input-pane-single" class="input-pane active">
+            <form id="single-issn-form">
+              <div class="form-group">
+                <label for="single-issn-input">Digite o ISSN ou Nome do Periódico:</label>
+                <input type="text" id="single-issn-input" class="text-input"
+                  placeholder="Ex: 0104-1169 ou Revista Latino-Americana de Enfermagem" required>
+              </div>
+              <button type="submit" class="btn" style="width: 100%;">Classificar Periódico</button>
+            </form>
+          </div>
+
+          <!-- Painel 2: Entrada em Lote -->
+          <div id="input-pane-batch" class="input-pane">
+            <form id="batch-issn-form">
+              <div class="form-group">
+                <label for="batch-issn-input">Insira uma lista de ISSNs (um por linha):</label>
+                <textarea id="batch-issn-input" class="text-input"
+                  placeholder="Ex:&#10;0104-1169&#10;0034-7167&#10;0021-9746" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-secondary" style="width: 100%;">Classificar Lote</button>
+            </form>
+          </div>
+
+          <!-- Painel 3: Upload de CSV -->
+          <div id="input-pane-upload" class="input-pane">
+            <div class="form-group">
+              <label>Arraste e solte seu arquivo CSV:</label>
+              <div id="dropzone" class="dropzone">
+                <div class="dropzone-icon"><i data-lucide="file-spreadsheet"></i></div>
+                <p>Arraste seu arquivo <strong>CSV</strong> aqui ou <span class="highlight">clique para
+                    selecionar</span></p>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Recomendado conter uma coluna
+                  chamada 'ISSN' (delimitador , ou ;)</p>
+                <input type="file" id="file-input" accept=".csv">
+              </div>
+            </div>
           </div>
         </div>
 
@@ -79,102 +105,116 @@
 
       <!-- Coluna da Direita: Área de Conteúdo Principal -->
       <main class="main-content">
-        
+
         <!-- Estado Vazio (Empty State) -->
         <div id="empty-state" class="card empty-state">
           <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
           <h3>Aguardando Dados para Análise</h3>
-          <p>Insira um ISSN na consulta individual, adicione uma lista em lote ou faça o upload de uma planilha CSV na barra lateral para classificar os periódicos e visualizar os gráficos estatísticos do Qualis CAPES.</p>
+          <p>Insira um ISSN na consulta individual, adicione uma lista em lote ou faça o upload de uma planilha CSV na
+            barra lateral para classificar os periódicos e visualizar os gráficos estatísticos do Qualis CAPES.</p>
         </div>
 
         <!-- Resultados e Analítica (Exibidos dinamicamente) -->
         <div id="analytics-results" style="display: none;">
-          
-          <!-- Cards de Métricas de Resumo (KPIs) -->
-          <div class="kpi-container">
-            <div class="kpi-card">
-              <span class="kpi-title">Periódicos Processados</span>
-              <span class="kpi-value" id="kpi-total">0</span>
-              <span class="kpi-sub">Total acumulado</span>
+
+          <!-- Navegação por Abas Premium -->
+          <div id="results-tabs" class="tab-navigation" style="margin-bottom: 20px;">
+            <button id="tab-table" class="tab-btn active"><i data-lucide="clipboard-list"></i> Tabela Detalhada</button>
+            <button id="tab-analytics" class="tab-btn"><i data-lucide="pie-chart"></i> Estatísticas & Dashboard</button>
+          </div>
+
+          <!-- Aba do Painel Estatístico & Dashboard -->
+          <div id="tab-content-analytics" class="tab-pane">
+            <!-- Cards de Métricas de Resumo (KPIs) -->
+            <div class="kpi-container">
+              <div class="kpi-card">
+                <span class="kpi-title">Periódicos Processados</span>
+                <span class="kpi-value" id="kpi-total">0</span>
+                <span class="kpi-sub">Total acumulado</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Maior JCR</span>
+                <span class="kpi-value" id="kpi-max-jcr">-</span>
+                <span class="kpi-sub">Fator de impacto</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Maior CiteScore</span>
+                <span class="kpi-value" id="kpi-max-citescore">-</span>
+                <span class="kpi-sub">Scopus metric</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Indexações de Qualidade</span>
+                <span class="kpi-value" id="kpi-percent-indexed">0%</span>
+                <span class="kpi-sub">SciELO/Scopus/Medline</span>
+              </div>
             </div>
-            <div class="kpi-card">
-              <span class="kpi-title">Maior JCR</span>
-              <span class="kpi-value" id="kpi-max-jcr">-</span>
-              <span class="kpi-sub">Fator de impacto</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-title">Maior CiteScore</span>
-              <span class="kpi-value" id="kpi-max-citescore">-</span>
-              <span class="kpi-sub">Scopus metric</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-title">Indexações de Qualidade</span>
-              <span class="kpi-value" id="kpi-percent-indexed">0%</span>
-              <span class="kpi-sub">SciELO/Scopus/Medline</span>
+
+            <!-- Grade de Gráficos Analíticos -->
+            <div class="analytics-grid">
+              <div class="card chart-card">
+                <h2 class="card-title"><i data-lucide="pie-chart"></i> Distribuição dos Extratos (Qualis)</h2>
+                <div class="chart-wrapper">
+                  <canvas id="qualis-chart"></canvas>
+                </div>
+              </div>
+              <div class="card chart-card">
+                <h2 class="card-title"><i data-lucide="bar-chart-4"></i> Distribuição por Indexadores</h2>
+                <div class="chart-wrapper">
+                  <canvas id="indexers-chart"></canvas>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Grade de Gráficos Analíticos -->
-          <div class="analytics-grid">
-            <div class="card chart-card">
-              <h2 class="card-title"><i data-lucide="pie-chart"></i> Distribuição dos Extratos (Qualis)</h2>
-              <div class="chart-wrapper">
-                <canvas id="qualis-chart"></canvas>
+          <!-- Aba da Tabela Detalhada -->
+          <div id="tab-content-table" class="tab-pane active">
+            <!-- Tabela de Periódicos Classificados -->
+            <div id="results-container" class="card">
+              <div class="results-header">
+                <h2 class="results-title"><i data-lucide="clipboard-list"></i> Tabela de Classificação Detalhada</h2>
+                <div class="results-actions">
+                  <button id="btn-export" class="btn"><i data-lucide="download"></i> Exportar CSV</button>
+                  <button id="btn-clear" class="btn btn-secondary"><i data-lucide="trash-2"></i> Limpar Tudo</button>
+                </div>
               </div>
-            </div>
-            <div class="card chart-card">
-              <h2 class="card-title"><i data-lucide="bar-chart-4"></i> Distribuição por Indexadores</h2>
-              <div class="chart-wrapper">
-                <canvas id="indexers-chart"></canvas>
+
+              <!-- Barra de Filtros e Busca -->
+              <div class="search-filter-bar">
+                <input type="text" id="search-box" class="text-input search-box"
+                  placeholder="Filtrar por Título ou ISSN...">
+                <select id="filter-estrato" class="select-filter">
+                  <option value="ALL">Todos os Estratos</option>
+                  <option value="A1">Qualis A1</option>
+                  <option value="A2">Qualis A2</option>
+                  <option value="A3">Qualis A3</option>
+                  <option value="A4">Qualis A4</option>
+                  <option value="A5">Qualis A5</option>
+                  <option value="A6">Qualis A6</option>
+                  <option value="A7">Qualis A7</option>
+                  <option value="A8">Qualis A8</option>
+                  <option value="NC">Não Classificado (NC)</option>
+                </select>
               </div>
-            </div>
-          </div>
 
-          <!-- Tabela de Periódicos Classificados -->
-          <div id="results-container" class="card">
-            <div class="results-header">
-              <h2 class="results-title"><i data-lucide="clipboard-list"></i> Tabela de Classificação Detalhada</h2>
-              <div class="results-actions">
-                <button id="btn-export" class="btn"><i data-lucide="download"></i> Exportar CSV</button>
-                <button id="btn-clear" class="btn btn-secondary"><i data-lucide="trash-2"></i> Limpar Tudo</button>
+              <!-- Tabela -->
+              <div class="table-responsive">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Título / Revista</th>
+                      <th>ISSN</th>
+                      <th>Área Encontrada</th>
+                      <th>JCR</th>
+                      <th>CiteScore</th>
+                      <th>Indexadores Ativos</th>
+                      <th>Estrato CAPES</th>
+                    </tr>
+                  </thead>
+                  <tbody id="results-table-body">
+                    <!-- Resultados inseridos via JS -->
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            <!-- Barra de Filtros e Busca -->
-            <div class="search-filter-bar">
-              <input type="text" id="search-box" class="text-input search-box" placeholder="Filtrar por Título ou ISSN...">
-              <select id="filter-estrato" class="select-filter">
-                <option value="ALL">Todos os Estratos</option>
-                <option value="A1">Qualis A1</option>
-                <option value="A2">Qualis A2</option>
-                <option value="A3">Qualis A3</option>
-                <option value="A4">Qualis A4</option>
-                <option value="A5">Qualis A5</option>
-                <option value="A6">Qualis A6</option>
-                <option value="A7">Qualis A7</option>
-                <option value="A8">Qualis A8</option>
-                <option value="NC">Não Classificado (NC)</option>
-              </select>
-            </div>
-
-            <!-- Tabela -->
-            <div class="table-responsive">
-              <table class="results-table">
-                <thead>
-                  <tr>
-                    <th>Título / Revista</th>
-                    <th>ISSN</th>
-                    <th>Área Encontrada</th>
-                    <th>JCR</th>
-                    <th>CiteScore</th>
-                    <th>Indexadores Ativos</th>
-                    <th>Estrato CAPES</th>
-                  </tr>
-                </thead>
-                <tbody id="results-table-body">
-                  <!-- Resultados inseridos via JS -->
-                </tbody>
-              </table>
             </div>
           </div>
 
@@ -197,7 +237,8 @@
         <h3 class="search-modal-title"><i data-lucide="list-filter"></i> Selecione o Periódico</h3>
         <button id="btn-close-modal" class="btn-close-modal"><i data-lucide="x"></i></button>
       </div>
-      <p class="search-modal-subtitle">Encontramos múltiplos periódicos para a sua busca. Escolha um abaixo para classificar:</p>
+      <p class="search-modal-subtitle">Encontramos múltiplos periódicos para a sua busca. Escolha um abaixo para
+        classificar:</p>
       <div id="search-results-list" class="search-results-list">
         <!-- Resultados injetados via JS -->
       </div>
@@ -221,5 +262,5 @@
   <!-- Scripts -->
   <script type="module" src="js/app.js"></script>
 </body>
-</html>
 
+</html>

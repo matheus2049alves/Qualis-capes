@@ -19,26 +19,26 @@ const appState = {
 // Elementos do DOM
 const dom = {
   dbStatus: document.getElementById('db-status'),
-  
+
   singleIssnForm: document.getElementById('single-issn-form'),
   singleIssnInput: document.getElementById('single-issn-input'),
-  
+
   batchIssnForm: document.getElementById('batch-issn-form'),
   batchIssnInput: document.getElementById('batch-issn-input'),
-  
+
   dropzone: document.getElementById('dropzone'),
   fileInput: document.getElementById('file-input'),
-  
+
   resultsContainer: document.getElementById('results-container'),
   resultsTableBody: document.getElementById('results-table-body'),
-  
+
   searchBox: document.getElementById('search-box'),
   filterEstrato: document.getElementById('filter-estrato'),
   btnExport: document.getElementById('btn-export'),
   btnClear: document.getElementById('btn-clear'),
-  
+
   themeToggle: document.getElementById('theme-toggle'),
-  
+
   // Elementos do novo Dashboard
   emptyState: document.getElementById('empty-state'),
   analyticsResults: document.getElementById('analytics-results'),
@@ -48,17 +48,32 @@ const dom = {
   kpiPercentIndexed: document.getElementById('kpi-percent-indexed'),
   qualisChart: document.getElementById('qualis-chart'),
   indexersChart: document.getElementById('indexers-chart'),
-  
+
   // Elementos do Overlay de Carregamento Premium
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingTitle: document.getElementById('loading-title'),
   loadingSubtitle: document.getElementById('loading-subtitle'),
   loadingIcon: document.getElementById('loading-icon'),
-  
+
   // Elementos do Modal de Seleção de Periódicos
   searchModal: document.getElementById('search-modal'),
   btnCloseModal: document.getElementById('btn-close-modal'),
-  searchResultsList: document.getElementById('search-results-list')
+  searchResultsList: document.getElementById('search-results-list'),
+
+  // Elementos do Chaveamento de Abas
+  resultsTabs: document.getElementById('results-tabs'),
+  tabTable: document.getElementById('tab-table'),
+  tabAnalytics: document.getElementById('tab-analytics'),
+  paneTable: document.getElementById('tab-content-table'),
+  paneAnalytics: document.getElementById('tab-content-analytics'),
+
+  // Elementos do Seletor Segmentado de Inputs (Sidebar)
+  selectorSingle: document.getElementById('selector-single'),
+  selectorBatch: document.getElementById('selector-batch'),
+  selectorUpload: document.getElementById('selector-upload'),
+  paneInputSingle: document.getElementById('input-pane-single'),
+  paneInputBatch: document.getElementById('input-pane-batch'),
+  paneInputUpload: document.getElementById('input-pane-upload')
 };
 
 /**
@@ -82,14 +97,14 @@ function setupEventListeners() {
   dom.themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
-    dom.themeToggle.innerHTML = isLight 
-      ? '<i data-lucide="sun"></i> <span>Modo Claro</span>' 
+    dom.themeToggle.innerHTML = isLight
+      ? '<i data-lucide="sun"></i> <span>Modo Claro</span>'
       : '<i data-lucide="moon"></i> <span>Modo Escuro</span>';
-    
+
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
-    
+
     // Atualiza gráficos se houver dados ativos, para refletir mudança de fontes/linhas de grade
     if (appState.classifiedItems.length > 0) {
       updateAnalytics();
@@ -103,7 +118,7 @@ function setupEventListeners() {
     if (!query) return;
 
     showLoadingState('Analisando Consulta', 'Verificando formato do termo digitado...', 'search');
-    
+
     const normalized = normalizeISSN(query);
     if (normalized) {
       // Se for formato ISSN, realiza fluxo normal
@@ -112,6 +127,7 @@ function setupEventListeners() {
       dom.singleIssnInput.value = '';
       hideLoadingState();
       renderResultsTable();
+      switchTab('table');
     } else {
       // Se for texto/nome da revista, executa busca textual
       await handleSearchByName(query);
@@ -126,7 +142,7 @@ function setupEventListeners() {
 
     showLoadingState('Processando Lote', 'Analisando múltiplos ISSNs e calculando estatísticas...', 'layers');
     const rawIssns = batchText.split(/[\n,;\s]+/).map(i => i.trim()).filter(i => i !== '');
-    
+
     for (const rawIssn of rawIssns) {
       const classified = await enrichAndClassify(rawIssn);
       addClassifiedItem(classified);
@@ -135,13 +151,14 @@ function setupEventListeners() {
     dom.batchIssnInput.value = '';
     hideLoadingState();
     renderResultsTable();
+    switchTab('analytics');
   });
 
   // Drag & Drop do CSV
   const dropzone = dom.dropzone;
-  
+
   dropzone.addEventListener('click', () => dom.fileInput.click());
-  
+
   dom.fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
       handleUploadedFile(e.target.files[0]);
@@ -173,6 +190,8 @@ function setupEventListeners() {
   dom.btnClear.addEventListener('click', () => {
     appState.classifiedItems = [];
     renderResultsTable();
+    switchTab('table');
+    switchInputType('single');
   });
 
   dom.btnExport.addEventListener('click', () => {
@@ -187,7 +206,7 @@ function setupEventListeners() {
   if (dom.btnCloseModal) {
     dom.btnCloseModal.addEventListener('click', closeSearchModal);
   }
-  
+
   // Fechar modal ao clicar fora dele
   if (dom.searchModal) {
     dom.searchModal.addEventListener('click', (e) => {
@@ -195,6 +214,25 @@ function setupEventListeners() {
         closeSearchModal();
       }
     });
+  }
+
+  // Ouvintes de clique para troca de abas
+  if (dom.tabTable) {
+    dom.tabTable.addEventListener('click', () => switchTab('table'));
+  }
+  if (dom.tabAnalytics) {
+    dom.tabAnalytics.addEventListener('click', () => switchTab('analytics'));
+  }
+
+  // Ouvintes de clique para o seletor segmentado de inputs (Sidebar)
+  if (dom.selectorSingle) {
+    dom.selectorSingle.addEventListener('click', () => switchInputType('single'));
+  }
+  if (dom.selectorBatch) {
+    dom.selectorBatch.addEventListener('click', () => switchInputType('batch'));
+  }
+  if (dom.selectorUpload) {
+    dom.selectorUpload.addEventListener('click', () => switchInputType('upload'));
   }
 }
 
@@ -234,7 +272,7 @@ function initUnitTests() {
 
     console.group('🩺 Diagnóstico do Motor de Regras Qualis CAPES');
     console.info(`🟢 Testes que passaram: ${passed.length}/${results.length}`);
-    
+
     if (failed.length > 0) {
       console.error(`🔴 Testes que falharam: ${failed.length}/${results.length}`);
       console.table(failed);
@@ -252,7 +290,7 @@ function initUnitTests() {
  */
 function handleUploadedFile(file) {
   const reader = new FileReader();
-  
+
   reader.onload = async (e) => {
     showLoadingState('Processando Planilha', 'Importando dados do arquivo CSV e enriquecendo periódicos...', 'file-spreadsheet');
     const text = e.target.result;
@@ -262,7 +300,7 @@ function handleUploadedFile(file) {
     let countNew = 0;
     for (const record of records) {
       const classified = await enrichAndClassify(record.issn);
-      
+
       if (record.title && record.title !== 'Artigo Importado' && classified.title === 'Periódico Não Identificado na Base') {
         classified.title = record.title;
       } else if (record.title && record.title !== 'Artigo Importado' && classified.title) {
@@ -275,6 +313,7 @@ function handleUploadedFile(file) {
 
     hideLoadingState();
     renderResultsTable();
+    switchTab('analytics');
     alert(`${countNew} artigos importados e classificados com sucesso!`);
   };
 
@@ -301,8 +340,8 @@ function getFilteredItems() {
   const filterVal = dom.filterEstrato.value;
 
   return appState.classifiedItems.filter(item => {
-    const matchesSearch = item.issn.toLowerCase().includes(searchVal) || 
-                          item.title.toLowerCase().includes(searchVal);
+    const matchesSearch = item.issn.toLowerCase().includes(searchVal) ||
+      item.title.toLowerCase().includes(searchVal);
     const matchesFilter = filterVal === 'ALL' || item.classification.estrato === filterVal;
     return matchesSearch && matchesFilter;
   });
@@ -313,11 +352,11 @@ function getFilteredItems() {
  */
 function updateAnalytics() {
   const items = appState.classifiedItems;
-  
+
   if (items.length === 0) {
     dom.emptyState.style.display = 'flex';
     dom.analyticsResults.style.display = 'none';
-    
+
     // Destrói instâncias ativas do Chart.js
     if (appState.charts.qualis) {
       appState.charts.qualis.destroy();
@@ -358,7 +397,7 @@ function updateAnalytics() {
 
   dom.kpiMaxJcr.textContent = maxJcr >= 0 ? maxJcr.toFixed(2) : '-';
   dom.kpiMaxCitescore.textContent = maxCiteScore >= 0 ? maxCiteScore.toFixed(2) : '-';
-  
+
   const percentIndexed = total > 0 ? Math.round((indexedCount / total) * 100) : 0;
   dom.kpiPercentIndexed.textContent = `${percentIndexed}%`;
 
@@ -373,12 +412,12 @@ function updateAnalytics() {
     }
   });
 
-  const indexerCounts = { 
-    'SciELO': 0, 
-    'Medline': 0, 
-    'Scopus': 0, 
-    'JCR (WoS)': 0, 
-    'Latindex': 0, 
+  const indexerCounts = {
+    'SciELO': 0,
+    'Medline': 0,
+    'Scopus': 0,
+    'JCR (WoS)': 0,
+    'Latindex': 0,
     'RIC/CUIDEN': 0,
     'LILACS': 0,
     'BDENF': 0,
@@ -410,7 +449,7 @@ function updateAnalytics() {
 function renderQualisChart(counts) {
   const canvas = dom.qualisChart;
   if (!canvas) return;
-  
+
   const ctx = canvas.getContext('2d');
   if (appState.charts.qualis) {
     appState.charts.qualis.destroy();
@@ -474,7 +513,7 @@ function renderQualisChart(counts) {
           borderWidth: 1,
           padding: 10,
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const val = context.raw;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
               const percent = Math.round((val / total) * 100);
@@ -601,12 +640,12 @@ function formatDate(dateStr) {
  */
 function renderResultsTable() {
   const filtered = getFilteredItems();
-  
+
   // Sempre atualiza os KPIs e gráficos com base na lista geral da sessão
   updateAnalytics();
 
   dom.resultsTableBody.innerHTML = '';
-  
+
   if (appState.classifiedItems.length === 0) {
     dom.resultsContainer.style.display = 'none';
     return;
@@ -627,7 +666,7 @@ function renderResultsTable() {
 
   filtered.forEach(item => {
     const row = document.createElement('tr');
-    
+
     const indexersTags = item.indexers.map(idx => {
       const upperIdx = idx.toUpperCase();
       if (upperIdx === 'SCIELO' && item.scieloUpdatedAt) {
@@ -675,7 +714,7 @@ function renderResultsTable() {
         </div>
       </td>
     `;
-    
+
     dom.resultsTableBody.appendChild(row);
   });
 
@@ -685,12 +724,73 @@ function renderResultsTable() {
   }
 }
 
+/**
+ * Chaveia a exibição das abas de resultados entre a tabela e estatísticas
+ * @param {'table'|'analytics'} tabId Identificador da aba
+ */
+function switchTab(tabId) {
+  if (!dom.tabTable || !dom.tabAnalytics || !dom.paneTable || !dom.paneAnalytics) return;
+
+  if (tabId === 'table') {
+    dom.tabTable.classList.add('active');
+    dom.tabAnalytics.classList.remove('active');
+
+    dom.paneTable.classList.add('active');
+    dom.paneAnalytics.classList.remove('active');
+  } else if (tabId === 'analytics') {
+    dom.tabTable.classList.remove('active');
+    dom.tabAnalytics.classList.add('active');
+
+    dom.paneTable.classList.remove('active');
+    dom.paneAnalytics.classList.add('active');
+
+    // Forçar redimensionamento dos gráficos Chart.js que foram criados em display: none
+    if (appState.charts.qualis) {
+      appState.charts.qualis.resize();
+    }
+    if (appState.charts.indexers) {
+      appState.charts.indexers.resize();
+    }
+  }
+}
+
+/**
+ * Chaveia o formulário de entrada da barra lateral (Individual, Lote ou Planilha)
+ * @param {'single'|'batch'|'upload'} type Tipo de input selecionado
+ */
+function switchInputType(type) {
+  if (!dom.selectorSingle || !dom.selectorBatch || !dom.selectorUpload ||
+    !dom.paneInputSingle || !dom.paneInputBatch || !dom.paneInputUpload) return;
+
+  // 1. Resetar classes active dos botões do seletor
+  dom.selectorSingle.classList.remove('active');
+  dom.selectorBatch.classList.remove('active');
+  dom.selectorUpload.classList.remove('active');
+
+  // 2. Resetar classes active dos painéis
+  dom.paneInputSingle.classList.remove('active');
+  dom.paneInputBatch.classList.remove('active');
+  dom.paneInputUpload.classList.remove('active');
+
+  // 3. Ativar o botão e painel correspondente
+  if (type === 'single') {
+    dom.selectorSingle.classList.add('active');
+    dom.paneInputSingle.classList.add('active');
+  } else if (type === 'batch') {
+    dom.selectorBatch.classList.add('active');
+    dom.paneInputBatch.classList.add('active');
+  } else if (type === 'upload') {
+    dom.selectorUpload.classList.add('active');
+    dom.paneInputUpload.classList.add('active');
+  }
+}
+
 function showLoadingState(title = 'Processando Periódico', subtitle = 'Consultando bases oficiais e aplicando critérios CAPES...', iconName = 'search') {
   document.body.style.cursor = 'wait';
   if (dom.loadingOverlay) {
     dom.loadingTitle.textContent = title;
     dom.loadingSubtitle.textContent = subtitle;
-    
+
     // Atualiza o ícone central
     if (dom.loadingIcon) {
       dom.loadingIcon.innerHTML = `<i data-lucide="${iconName}"></i>`;
@@ -704,7 +804,7 @@ function showLoadingState(title = 'Processando Periódico', subtitle = 'Consulta
         });
       }
     }
-    
+
     dom.loadingOverlay.classList.add('active');
   }
 }
@@ -722,7 +822,7 @@ function hideLoadingState() {
  */
 async function handleSearchByName(nameQuery) {
   const queryLower = nameQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  
+
   // 1. Filtrar no banco local (já carregado na memória)
   const matches = appState.dbSummary.items.filter(item => {
     if (!item.title) return false;
@@ -773,6 +873,7 @@ async function handleSearchByName(nameQuery) {
     renderResultsTable();
     dom.singleIssnInput.value = '';
     hideLoadingState();
+    switchTab('table');
     return;
   }
 
@@ -806,6 +907,7 @@ function showSearchModal(items) {
       renderResultsTable();
       dom.singleIssnInput.value = '';
       hideLoadingState();
+      switchTab('table');
     });
 
     dom.searchResultsList.appendChild(itemEl);
@@ -813,7 +915,7 @@ function showSearchModal(items) {
 
   if (dom.searchModal) {
     dom.searchModal.classList.add('active');
-    
+
     // Re-inicializa ícones do Lucide no modal se houver
     if (typeof lucide !== 'undefined') {
       lucide.createIcons({
