@@ -48,6 +48,15 @@ graph TD
 
 ---
 
+### 3. Modernização Visual com Lucide Icons (Sprint 2)
+Substituímos todos os emojis em modo texto por ícones vetoriais modernos, otimizando a consistência visual em ambos os temas (claro e escuro):
+* **HTML Dinâmico e Estático**: Os emojis de títulos de painéis, botões e ícones indicativos foram mapeados para tags `<i data-lucide="..."></i>`.
+* **Inicialização Inteligente**: Inicialização e re-renderização de ícones automatizada no Javascript no carregamento da página, alternador de temas (troca de ícones de sol e lua) e ao recriar linhas de dados da tabela de classificação (ícone de informação `info`).
+* **Estilização de Ícones**: Adicionado CSS para controlar as dimensões (14px a 64px) e garantir alinhamento vertical e margens adequadas com os textos circundantes.
+* **Logotipo do Projeto**: O antigo ícone em texto 'QC' foi substituído pela nova identidade visual vetorial carregada a partir do arquivo [logo.svg](file:///c:/Dev/Qualis-capes/logo.svg) na raiz do projeto, acompanhado por estilizações de proporção, sombreamento e uma animação sutil de escala e rotação no hover.
+
+---
+
 ## 📂 Estrutura de Arquivos Atualizada
 
 Abaixo está a disposição dos principais módulos do projeto sob a pasta raiz:
@@ -65,7 +74,7 @@ Abaixo está a disposição dos principais módulos do projeto sob a pasta raiz:
   * 📄 [utils.js](file:///c:/Dev/Qualis-capes/js/utils.js) — Parser de CSV, gerador de arquivos para download e detecção de delimitador.
   * 📄 [tests.js](file:///c:/Dev/Qualis-capes/js/tests.js) — Suíte de testes unitários com cobertura de 38 cenários de classificação.
 * 📁 `css/` — Estilização do aplicativo:
-  * 📄 [styles.css](file:///c:/Dev/Qualis-capes/css/styles.css) — Variáveis CSS de temas, definições de layout Grid/Flex e o sistema de tooltips customizados.
+  * 📄 [styles.css](file:///c:/Dev/Qualis-capes/css/styles.css) — Variáveis CSS de temas, definições de layout Grid/Flex, sistema de tooltips customizados e dimensionamento de vetores Lucide.
 * 📄 [server.py](file:///c:/Dev/Qualis-capes/server.py) — Servidor HTTP nativo e gerenciador de endpoints de proxy e cache.
 
 ---

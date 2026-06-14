@@ -47,7 +47,13 @@ const dom = {
   kpiMaxCitescore: document.getElementById('kpi-max-citescore'),
   kpiPercentIndexed: document.getElementById('kpi-percent-indexed'),
   qualisChart: document.getElementById('qualis-chart'),
-  indexersChart: document.getElementById('indexers-chart')
+  indexersChart: document.getElementById('indexers-chart'),
+  
+  // Elementos do Overlay de Carregamento Premium
+  loadingOverlay: document.getElementById('loading-overlay'),
+  loadingTitle: document.getElementById('loading-title'),
+  loadingSubtitle: document.getElementById('loading-subtitle'),
+  loadingIcon: document.getElementById('loading-icon')
 };
 
 /**
@@ -57,6 +63,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await initDatabase();
   initUnitTests();
+  // Inicializa ícones Lucide
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 });
 
 /**
@@ -68,8 +78,12 @@ function setupEventListeners() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
     dom.themeToggle.innerHTML = isLight 
-      ? '☀️ Modo Claro' 
-      : '🌙 Modo Escuro';
+      ? '<i data-lucide="sun"></i> <span>Modo Claro</span>' 
+      : '<i data-lucide="moon"></i> <span>Modo Escuro</span>';
+    
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
     
     // Atualiza gráficos se houver dados ativos, para refletir mudança de fontes/linhas de grade
     if (appState.classifiedItems.length > 0) {
@@ -83,7 +97,7 @@ function setupEventListeners() {
     const rawIssn = dom.singleIssnInput.value.trim();
     if (!rawIssn) return;
 
-    showLoadingState();
+    showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
     const classified = await enrichAndClassify(rawIssn);
     addClassifiedItem(classified);
     
@@ -98,7 +112,7 @@ function setupEventListeners() {
     const batchText = dom.batchIssnInput.value.trim();
     if (!batchText) return;
 
-    showLoadingState();
+    showLoadingState('Processando Lote', 'Analisando múltiplos ISSNs e calculando estatísticas...', 'layers');
     const rawIssns = batchText.split(/[\n,;\s]+/).map(i => i.trim()).filter(i => i !== '');
     
     for (const rawIssn of rawIssns) {
@@ -214,7 +228,7 @@ function handleUploadedFile(file) {
   const reader = new FileReader();
   
   reader.onload = async (e) => {
-    showLoadingState();
+    showLoadingState('Processando Planilha', 'Importando dados do arquivo CSV e enriquecendo periódicos...', 'file-spreadsheet');
     const text = e.target.result;
     const parsed = parseCSV(text);
     const records = processCSVData(parsed);
@@ -333,7 +347,18 @@ function updateAnalytics() {
     }
   });
 
-  const indexerCounts = { 'SciELO': 0, 'Medline': 0, 'Scopus': 0, 'JCR (WoS)': 0, 'Latindex': 0, 'RIC/CUIDEN': 0 };
+  const indexerCounts = { 
+    'SciELO': 0, 
+    'Medline': 0, 
+    'Scopus': 0, 
+    'JCR (WoS)': 0, 
+    'Latindex': 0, 
+    'RIC/CUIDEN': 0,
+    'LILACS': 0,
+    'BDENF': 0,
+    'CINAHL': 0,
+    'RevEnf': 0
+  };
   items.forEach(item => {
     const indexers = (item.indexers || []).map(idx => idx.toUpperCase());
     if (indexers.includes('SCIELO')) indexerCounts['SciELO']++;
@@ -342,6 +367,10 @@ function updateAnalytics() {
     if (item.jcr !== null && item.jcr > 0) indexerCounts['JCR (WoS)']++;
     if (indexers.includes('LATINDEX')) indexerCounts['Latindex']++;
     if (indexers.includes('CUIDEN') || indexers.includes('RIC/CUIDEN') || indexers.includes('RIC')) indexerCounts['RIC/CUIDEN']++;
+    if (indexers.includes('LILACS')) indexerCounts['LILACS']++;
+    if (indexers.includes('BDENF')) indexerCounts['BDENF']++;
+    if (indexers.includes('CINAHL')) indexerCounts['CINAHL']++;
+    if (indexers.includes('REVENF')) indexerCounts['RevEnf']++;
   });
 
   // 3. Renderizar gráficos
@@ -448,11 +477,29 @@ function renderIndexersChart(counts) {
   // Filtrar categorias que possuem ao menos 1 item para manter o gráfico focado
   const labels = [];
   const data = [];
+  const backgroundColors = [];
+  const hoverBackgroundColors = [];
+
+  const indexerColors = {
+    'SciELO': { bg: 'rgba(224, 70, 34, 0.85)', hover: '#e04622' },          // Vermelho-tijolo SciELO
+    'Medline': { bg: 'rgba(0, 113, 188, 0.85)', hover: '#0071bc' },          // Azul MEDLINE/PubMed
+    'Scopus': { bg: 'rgba(255, 111, 0, 0.85)', hover: '#ff6f00' },           // Laranja Scopus
+    'JCR (WoS)': { bg: 'rgba(124, 58, 237, 0.85)', hover: '#7c3aed' },       // Roxo JCR
+    'Latindex': { bg: 'rgba(0, 168, 107, 0.85)', hover: '#00a86b' },         // Verde Latindex
+    'RIC/CUIDEN': { bg: 'rgba(132, 204, 22, 0.85)', hover: '#84cc16' },      // Verde limão CUIDEN
+    'LILACS': { bg: 'rgba(6, 182, 212, 0.85)', hover: '#06b6d4' },           // Ciano LILACS
+    'BDENF': { bg: 'rgba(20, 184, 166, 0.85)', hover: '#14b8a6' },           // Teal BDENF
+    'CINAHL': { bg: 'rgba(2, 132, 199, 0.85)', hover: '#0284c7' },           // Azul CINAHL
+    'RevEnf': { bg: 'rgba(219, 39, 119, 0.85)', hover: '#db2777' }           // Rosa RevEnf
+  };
 
   Object.entries(counts).forEach(([key, val]) => {
     if (val > 0) {
       labels.push(key);
       data.push(val);
+      const color = indexerColors[key] || { bg: 'rgba(99, 102, 241, 0.75)', hover: '#6366f1' };
+      backgroundColors.push(color.bg);
+      hoverBackgroundColors.push(color.hover);
     }
   });
 
@@ -467,8 +514,8 @@ function renderIndexersChart(counts) {
       datasets: [{
         label: 'Periódicos',
         data: data,
-        backgroundColor: 'rgba(99, 102, 241, 0.75)',
-        hoverBackgroundColor: '#6366f1',
+        backgroundColor: backgroundColors,
+        hoverBackgroundColor: hoverBackgroundColors,
         borderRadius: 6,
         borderWidth: 0
       }]
@@ -563,6 +610,9 @@ function renderResultsTable() {
       if (upperIdx === 'LILACS' && item.lilacsUpdatedAt) {
         return `<span class="indexer-tag" data-tooltip="Dado obtido de LILACS em ${formatDate(item.lilacsUpdatedAt)}">${idx}</span>`;
       }
+      if (upperIdx === 'BDENF' && item.lilacsUpdatedAt) {
+        return `<span class="indexer-tag" data-tooltip="Dado obtido de BDENF em ${formatDate(item.lilacsUpdatedAt)}">${idx}</span>`;
+      }
       if (upperIdx === 'LATINDEX' && item.latindexUpdatedAt) {
         return `<span class="indexer-tag" data-tooltip="Dado obtido de Latindex em ${formatDate(item.latindexUpdatedAt)}">${idx}</span>`;
       }
@@ -595,19 +645,47 @@ function renderResultsTable() {
           <span class="estrato-badge ${item.classification.estrato}">
             ${item.classification.estrato}
           </span>
-          <span style="margin-left: 6px; font-size: 11px; cursor: help; color: var(--text-muted);">ℹ️</span>
+          <i data-lucide="info" class="info-icon"></i>
         </div>
       </td>
     `;
     
     dom.resultsTableBody.appendChild(row);
   });
+
+  // Re-inicializa os ícones Lucide na tabela dinâmica
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
-function showLoadingState() {
+function showLoadingState(title = 'Processando Periódico', subtitle = 'Consultando bases oficiais e aplicando critérios CAPES...', iconName = 'search') {
   document.body.style.cursor = 'wait';
+  if (dom.loadingOverlay) {
+    dom.loadingTitle.textContent = title;
+    dom.loadingSubtitle.textContent = subtitle;
+    
+    // Atualiza o ícone central
+    if (dom.loadingIcon) {
+      dom.loadingIcon.innerHTML = `<i data-lucide="${iconName}"></i>`;
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons({
+          attrs: {
+            class: 'lucide'
+          },
+          nameAttr: 'data-lucide',
+          node: dom.loadingIcon
+        });
+      }
+    }
+    
+    dom.loadingOverlay.classList.add('active');
+  }
 }
 
 function hideLoadingState() {
   document.body.style.cursor = 'default';
+  if (dom.loadingOverlay) {
+    dom.loadingOverlay.classList.remove('active');
+  }
 }

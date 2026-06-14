@@ -7,6 +7,7 @@
   <meta name="description" content="Ferramenta automatizada para enriquecimento de métricas e classificação de periódicos científicos de acordo com as regras da CAPES para Enfermagem e Outras Áreas.">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
 
@@ -21,13 +22,11 @@
     <!-- Cabeçalho Principal -->
     <header>
       <div class="logo-container">
-        <div class="logo-icon">QC</div>
-        <div class="logo-text">
-          <h1>Qualis CAPES</h1>
-          <p>Classificador de Artigos (Enfermagem)</p>
-        </div>
+        <img src="logo.svg" alt="Logo Qualis CAPES" class="logo-image">
+        <div class="header-divider"></div>
+        <p class="header-subtitle">Classificador de Artigos (Enfermagem)</p>
       </div>
-      <button id="theme-toggle" class="theme-toggle-btn">🌙 Modo Escuro</button>
+      <button id="theme-toggle" class="theme-toggle-btn"><i data-lucide="moon"></i> <span>Modo Escuro</span></button>
     </header>
 
     <!-- Layout Principal de Duas Colunas -->
@@ -38,7 +37,7 @@
         
         <!-- Consulta Individual -->
         <div class="card">
-          <h2 class="card-title">🔍 Consulta Individual</h2>
+          <h2 class="card-title"><i data-lucide="search"></i> Consulta Individual</h2>
           <form id="single-issn-form">
             <div class="form-group">
               <label for="single-issn-input">Digite o ISSN do Periódico:</label>
@@ -50,7 +49,7 @@
 
         <!-- Entrada em Lote -->
         <div class="card">
-          <h2 class="card-title">📚 Entrada em Lote</h2>
+          <h2 class="card-title"><i data-lucide="layers"></i> Entrada em Lote</h2>
           <form id="batch-issn-form">
             <div class="form-group">
               <label for="batch-issn-input">Insira uma lista de ISSNs (um por linha):</label>
@@ -62,9 +61,9 @@
 
         <!-- Upload de Planilha / CSV -->
         <div class="card">
-          <h2 class="card-title">📤 Upload de Planilha (CSV)</h2>
+          <h2 class="card-title"><i data-lucide="upload"></i> Upload de Planilha (CSV)</h2>
           <div id="dropzone" class="dropzone">
-            <div class="dropzone-icon">📄</div>
+            <div class="dropzone-icon"><i data-lucide="file-spreadsheet"></i></div>
             <p>Arraste e solte seu arquivo <strong>CSV</strong> aqui ou <span class="highlight">clique para selecionar</span></p>
             <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Recomendado conter uma coluna chamada 'ISSN' (delimitador , ou ;)</p>
             <input type="file" id="file-input" accept=".csv">
@@ -83,7 +82,7 @@
         
         <!-- Estado Vazio (Empty State) -->
         <div id="empty-state" class="card empty-state">
-          <div class="empty-state-icon">📊</div>
+          <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
           <h3>Aguardando Dados para Análise</h3>
           <p>Insira um ISSN na consulta individual, adicione uma lista em lote ou faça o upload de uma planilha CSV na barra lateral para classificar os periódicos e visualizar os gráficos estatísticos do Qualis CAPES.</p>
         </div>
@@ -118,13 +117,13 @@
           <!-- Grade de Gráficos Analíticos -->
           <div class="analytics-grid">
             <div class="card chart-card">
-              <h2 class="card-title">🍩 Distribuição dos Extratos (Qualis)</h2>
+              <h2 class="card-title"><i data-lucide="pie-chart"></i> Distribuição dos Extratos (Qualis)</h2>
               <div class="chart-wrapper">
                 <canvas id="qualis-chart"></canvas>
               </div>
             </div>
             <div class="card chart-card">
-              <h2 class="card-title">📊 Distribuição por Indexadores</h2>
+              <h2 class="card-title"><i data-lucide="bar-chart-4"></i> Distribuição por Indexadores</h2>
               <div class="chart-wrapper">
                 <canvas id="indexers-chart"></canvas>
               </div>
@@ -134,10 +133,10 @@
           <!-- Tabela de Periódicos Classificados -->
           <div id="results-container" class="card">
             <div class="results-header">
-              <h2 class="results-title">📋 Tabela de Classificação Detalhada</h2>
+              <h2 class="results-title"><i data-lucide="clipboard-list"></i> Tabela de Classificação Detalhada</h2>
               <div class="results-actions">
-                <button id="btn-export" class="btn">💾 Exportar CSV</button>
-                <button id="btn-clear" class="btn btn-secondary">🗑️ Limpar Tudo</button>
+                <button id="btn-export" class="btn"><i data-lucide="download"></i> Exportar CSV</button>
+                <button id="btn-clear" class="btn btn-secondary"><i data-lucide="trash-2"></i> Limpar Tudo</button>
               </div>
             </div>
 
@@ -191,7 +190,22 @@
     <p>&copy; 2026 - Classificador Qualis CAPES Automatizado. Desenvolvido para auxílio acadêmico.</p>
   </footer>
 
+  <!-- Overlay de Carregamento Premium -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-card">
+      <div class="premium-spinner-container">
+        <div class="premium-spinner"></div>
+        <div id="loading-icon" class="spinner-center-icon">
+          <i data-lucide="search"></i>
+        </div>
+      </div>
+      <h3 id="loading-title" class="loading-title">Processando Periódico</h3>
+      <p id="loading-subtitle" class="loading-subtitle">Consultando bases oficiais e aplicando critérios CAPES...</p>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
+

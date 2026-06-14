@@ -172,16 +172,16 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             })
 
     def handle_lilacs(self, path):
-        """Proxy para a API LILACS com cache persistente de 30 dias."""
+        """Proxy para a API LILACS com cache persistente de 30 dias, extraindo também o status do BDENF."""
         issn = path.replace("/api/lilacs/", "").strip("/")
 
         if not issn or len(issn) < 8:
             self.send_json(400, {"error": "ISSN invalido"})
             return
 
-        # Verifica cache em disco
+        # Verifica cache em disco (exige que o cache antigo contenha 'bdenf' para ser aproveitado)
         cached = check_cache_validity(_lilacs_cache, issn)
-        if cached:
+        if cached and "bdenf" in cached:
             self.send_json(200, cached)
             return
 
@@ -201,13 +201,17 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
                 docs = response_data.get("docs", [])
                 
                 lilacs = num_found >= 1
+                bdenf = False
                 title = None
                 if lilacs and len(docs) > 0:
                     title = docs[0].get("title")
+                    indexed_dbs = docs[0].get("indexed_database", [])
+                    bdenf = any("BDENF" in db.upper() for db in indexed_dbs)
                 
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 result = {
                     "lilacs": lilacs,
+                    "bdenf": bdenf,
                     "title": title,
                     "updated_at": today_str,
                     "status": "ok"
@@ -223,6 +227,7 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(502, {
                 "error": f"LILACS API error: {e.code}",
                 "lilacs": False,
+                "bdenf": False,
                 "updated_at": None
             })
 
@@ -230,6 +235,7 @@ class QualisHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(504, {
                 "error": "Timeout ao consultar API LILACS",
                 "lilacs": False,
+                "bdenf": False,
                 "updated_at": None
             })
 

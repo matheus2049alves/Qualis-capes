@@ -109,19 +109,19 @@ async function fetchSciELOFromAPI(issn) {
 }
 
 /**
- * Busca indexações no LILACS via API LILACS (proxy local).
+ * Busca indexações no LILACS e BDENF via API LILACS (proxy local).
  * @param {string} issn ISSN normalizado (XXXX-XXXX)
- * @returns {Promise<{lilacs: boolean, title: string|null, updated_at: string|null}>}
+ * @returns {Promise<{lilacs: boolean, bdenf: boolean, title: string|null, updated_at: string|null}>}
  */
 async function fetchLILACSFromAPI(issn) {
   try {
     const response = await fetch(`/api/lilacs/${issn}`);
-    if (!response.ok) return { lilacs: false, title: null, updated_at: null };
+    if (!response.ok) return { lilacs: false, bdenf: false, title: null, updated_at: null };
     
     return await response.json();
   } catch (error) {
-    console.warn(`[LILACS API] Falha para ${issn}:`, error.message);
-    return { lilacs: false, title: null, updated_at: null };
+    console.warn(`[LILACS/BDENF API] Falha para ${issn}:`, error.message);
+    return { lilacs: false, bdenf: false, title: null, updated_at: null };
   }
 }
 
@@ -164,10 +164,10 @@ export async function enrichAndClassify(rawIssn) {
         fetchLatindexFromAPI(normalized)
       ]);
 
-      if (scieloData.scielo || lilacsData.lilacs || latindexData.latindex) {
+      if (scieloData.scielo || lilacsData.lilacs || lilacsData.bdenf || latindexData.latindex) {
         dbRecord = {
           title: scieloData.title || lilacsData.title || latindexData.title || 'Periódico da Rede BVS/SciELO/Latindex',
-          area: scieloData.revenf ? 'Enfermagem' : 'Outras Áreas',
+          area: (scieloData.revenf || lilacsData.bdenf) ? 'Enfermagem' : 'Outras Áreas',
           jcr: null,
           citeScore: null,
           indexers: [],
@@ -183,6 +183,10 @@ export async function enrichAndClassify(rawIssn) {
         }
         if (lilacsData.lilacs) {
           dbRecord.indexers.push('LILACS');
+          dbRecord.lilacsUpdatedAt = lilacsData.updated_at;
+        }
+        if (lilacsData.bdenf) {
+          dbRecord.indexers.push('BDENF');
           dbRecord.lilacsUpdatedAt = lilacsData.updated_at;
         }
         if (latindexData.latindex) {
@@ -217,13 +221,13 @@ export async function enrichAndClassify(rawIssn) {
   if (normalized) {
     const promises = [];
     const needSciELO = !localIndexers.includes('SCIELO') && !localIndexers.includes('REVENF');
-    const needLILACS = !localIndexers.includes('LILACS');
+    const needLILACSOrBDENF = !localIndexers.includes('LILACS') && !localIndexers.includes('BDENF');
     const needLatindex = !localIndexers.includes('LATINDEX');
 
     if (needSciELO) {
       promises.push(fetchSciELOFromAPI(normalized).then(data => ({ type: 'scielo', data })));
     }
-    if (needLILACS) {
+    if (needLILACSOrBDENF) {
       promises.push(fetchLILACSFromAPI(normalized).then(data => ({ type: 'lilacs', data })));
     }
     if (needLatindex) {
@@ -244,13 +248,17 @@ export async function enrichAndClassify(rawIssn) {
             dbRecord.area = 'Enfermagem'; // Coleção RevEnf garante área de Enfermagem
           }
           console.log(`[SciELO API] ${normalized} atualizado: SciELO=${res.data.scielo}, RevEnf=${res.data.revenf}`);
-        } else if (res.type === 'lilacs' && res.data.lilacs) {
+        } else if (res.type === 'lilacs' && (res.data.lilacs || res.data.bdenf)) {
           if (!dbRecord.indexers) dbRecord.indexers = [];
-          if (!dbRecord.indexers.includes('LILACS')) {
+          if (res.data.lilacs && !dbRecord.indexers.includes('LILACS')) {
             dbRecord.indexers.push('LILACS');
           }
+          if (res.data.bdenf && !dbRecord.indexers.includes('BDENF')) {
+            dbRecord.indexers.push('BDENF');
+            dbRecord.area = 'Enfermagem'; // Coleção BDENF garante área de Enfermagem
+          }
           dbRecord.lilacsUpdatedAt = res.data.updated_at;
-          console.log(`[LILACS API] ${normalized} atualizado: LILACS=${res.data.lilacs}`);
+          console.log(`[LILACS/BDENF API] ${normalized} atualizado: LILACS=${res.data.lilacs}, BDENF=${res.data.bdenf}`);
         } else if (res.type === 'latindex' && res.data.latindex) {
           if (!dbRecord.indexers) dbRecord.indexers = [];
           if (!dbRecord.indexers.includes('LATINDEX')) {
