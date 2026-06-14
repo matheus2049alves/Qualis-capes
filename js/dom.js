@@ -63,7 +63,10 @@ const dom = {
   paneInputUpload: document.getElementById('input-pane-upload'),
 
   // Container de Toasts
-  toastContainer: document.getElementById('toast-container')
+  toastContainer: document.getElementById('toast-container'),
+
+  // Lista de Buscas Recentes
+  recentSearchesList: document.getElementById('recent-searches-list')
 };
 
 export default dom;

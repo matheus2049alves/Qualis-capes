@@ -96,6 +96,26 @@
           </div>
         </div>
 
+        <!-- Card de Histórico e Atalhos Rápidos -->
+        <div id="sidebar-history-card" class="card sidebar-history-card">
+          <div class="history-section">
+            <h3 class="history-title"><i data-lucide="award"></i> Periódicos Frequentes (PPGENF)</h3>
+            <div class="quick-links-grid">
+              <button class="quick-link-btn" data-issn="0104-1169" title="Revista Latino-Americana de Enfermagem">RLAE (A2)</button>
+              <button class="quick-link-btn" data-issn="0034-7167" title="Revista Brasileira de Enfermagem">REBEn (A4)</button>
+              <button class="quick-link-btn" data-issn="1982-0194" title="Acta Paulista de Enfermagem">Acta Paulista (A3)</button>
+              <button class="quick-link-btn" data-issn="0104-0707" title="Texto & Contexto Enfermagem">Texto & Contexto (A3)</button>
+            </div>
+          </div>
+          
+          <div class="history-section" style="margin-top: 15px; border-top: 1px solid var(--panel-border); padding-top: 15px;">
+            <h3 class="history-title"><i data-lucide="history"></i> Buscas Recentes</h3>
+            <div id="recent-searches-list" class="recent-searches-list">
+              <span class="no-history-msg">Nenhuma busca recente realizada.</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Status da Conexão da Base de Referência -->
         <div class="db-status-footer">
           <div id="db-status" class="db-badge">Carregando base local...</div>
@@ -125,6 +145,10 @@
 
           <!-- Aba do Painel Estatístico & Dashboard -->
           <div id="tab-content-analytics" class="tab-pane">
+            <div class="analytics-header" style="margin-bottom: 25px;">
+              <h2 class="results-title" style="display: flex; align-items: center; gap: 8px;"><i data-lucide="pie-chart"></i> Visão Geral & Estatísticas Consolidadas</h2>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 6px;">Distribuição de periódicos por extratos CAPES, bases de indexação ativas e indicadores gerais de fator de impacto.</p>
+            </div>
             <!-- Cards de Métricas de Resumo (KPIs) -->
             <div class="kpi-container">
               <div class="kpi-card">

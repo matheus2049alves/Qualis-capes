@@ -66,20 +66,21 @@ export function renderResultsTable() {
 
     const indexersTags = item.indexers.map(idx => {
       const safeIdx = escapeHTML(idx);
+      const lowerIdx = idx.toLowerCase();
       const upperIdx = idx.toUpperCase();
+      
+      let tooltipAttr = '';
       if (upperIdx === 'SCIELO' && item.scieloUpdatedAt) {
-        return `<span class="indexer-tag" data-tooltip="Dado obtido de SciELO em ${escapeHTML(formatDate(item.scieloUpdatedAt))}">${safeIdx}</span>`;
+        tooltipAttr = ` data-tooltip="Dado obtido de SciELO em ${escapeHTML(formatDate(item.scieloUpdatedAt))}"`;
+      } else if (upperIdx === 'LILACS' && item.lilacsUpdatedAt) {
+        tooltipAttr = ` data-tooltip="Dado obtido de LILACS em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}"`;
+      } else if (upperIdx === 'BDENF' && item.lilacsUpdatedAt) {
+        tooltipAttr = ` data-tooltip="Dado obtido de BDENF em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}"`;
+      } else if (upperIdx === 'LATINDEX' && item.latindexUpdatedAt) {
+        tooltipAttr = ` data-tooltip="Dado obtido de Latindex em ${escapeHTML(formatDate(item.latindexUpdatedAt))}"`;
       }
-      if (upperIdx === 'LILACS' && item.lilacsUpdatedAt) {
-        return `<span class="indexer-tag" data-tooltip="Dado obtido de LILACS em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}">${safeIdx}</span>`;
-      }
-      if (upperIdx === 'BDENF' && item.lilacsUpdatedAt) {
-        return `<span class="indexer-tag" data-tooltip="Dado obtido de BDENF em ${escapeHTML(formatDate(item.lilacsUpdatedAt))}">${safeIdx}</span>`;
-      }
-      if (upperIdx === 'LATINDEX' && item.latindexUpdatedAt) {
-        return `<span class="indexer-tag" data-tooltip="Dado obtido de Latindex em ${escapeHTML(formatDate(item.latindexUpdatedAt))}">${safeIdx}</span>`;
-      }
-      return `<span class="indexer-tag">${safeIdx}</span>`;
+      
+      return `<span class="indexer-tag ${lowerIdx}"${tooltipAttr}>${safeIdx}</span>`;
     }).join('');
     const cuidenVal = (item.metrics && item.metrics.cuiden) ? item.metrics.cuiden : null;
 
@@ -95,12 +96,24 @@ export function renderResultsTable() {
           ${safeArea}
         </span>
       </td>
-      <td>${item.jcr !== null ? item.jcr.toFixed(2) : '-'}</td>
-      <td>${item.citeScore !== null ? item.citeScore.toFixed(2) : '-'}</td>
+      <td>${item.jcr !== null ? item.jcr.toFixed(2) : `
+        <span class="metric-missing" data-tooltip="Métrica JCR não disponível para este periódico na base de dados.">
+          - <i data-lucide="help-circle" class="help-icon" style="width: 12px; height: 12px;"></i>
+        </span>
+      `}</td>
+      <td>${item.citeScore !== null ? item.citeScore.toFixed(2) : `
+        <span class="metric-missing" data-tooltip="Métrica CiteScore não disponível para este periódico na base de dados.">
+          - <i data-lucide="help-circle" class="help-icon" style="width: 12px; height: 12px;"></i>
+        </span>
+      `}</td>
       <td>
         <div style="max-width: 200px;">
-          ${indexersTags || '-'}
-          ${cuidenVal !== null ? `<br><span class="indexer-tag">CUIDEN: ${cuidenVal.toFixed(2)}</span>` : ''}
+          ${indexersTags || `
+            <span class="metric-missing" data-tooltip="Nenhum indexador ativo registrado para este periódico na base.">
+              - <i data-lucide="help-circle" class="help-icon" style="width: 12px; height: 12px;"></i>
+            </span>
+          `}
+          ${cuidenVal !== null ? `<br><span class="indexer-tag cuiden">CUIDEN: ${cuidenVal.toFixed(2)}</span>` : ''}
         </div>
       </td>
       <td>

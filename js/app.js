@@ -17,7 +17,8 @@ import {
   switchTab, switchInputType,
   showLoadingState, hideLoadingState,
   showSearchModal, closeSearchModal,
-  initTheme, toggleTheme, showToast
+  initTheme, toggleTheme, showToast,
+  addRecentSearch, renderRecentSearches
 } from './ui.js';
 
 // ─── Inicialização ───────────────────────────────────────────────
@@ -26,6 +27,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   setupEventListeners();
   restoreResults();
+  renderRecentSearches();
   await initDatabase();
 
   // Se havia resultados restaurados da sessão anterior, renderiza-os
@@ -63,6 +65,7 @@ function setupEventListeners() {
     if (normalized) {
       const classified = await enrichAndClassify(normalized);
       addClassifiedItem(classified);
+      addRecentSearch(classified.issn, classified.title);
       dom.singleIssnInput.value = '';
       hideLoadingState();
       renderResultsTable();
@@ -153,6 +156,26 @@ function setupEventListeners() {
   if (dom.selectorSingle) dom.selectorSingle.addEventListener('click', () => switchInputType('single'));
   if (dom.selectorBatch) dom.selectorBatch.addEventListener('click', () => switchInputType('batch'));
   if (dom.selectorUpload) dom.selectorUpload.addEventListener('click', () => switchInputType('upload'));
+
+  // Cliques nos atalhos rápidos e buscas recentes (delegação de evento)
+  const historyCard = document.getElementById('sidebar-history-card');
+  if (historyCard) {
+    historyCard.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.quick-link-btn, .recent-search-btn');
+      if (!btn) return;
+
+      const issn = btn.getAttribute('data-issn');
+      if (!issn) return;
+
+      showLoadingState('Analisando Consulta', 'Classificando periódico a partir do atalho...', 'search');
+      const classified = await enrichAndClassify(issn);
+      addClassifiedItem(classified);
+      addRecentSearch(classified.issn, classified.title);
+      hideLoadingState();
+      renderResultsTable();
+      switchTab('table');
+    });
+  }
 }
 
 // ─── Handlers ────────────────────────────────────────────────────
@@ -294,6 +317,7 @@ async function handleSearchByName(nameQuery) {
     showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
     const classified = await enrichAndClassify(allMatches[0].issn);
     addClassifiedItem(classified);
+    addRecentSearch(classified.issn, classified.title);
     renderResultsTable();
     dom.singleIssnInput.value = '';
     hideLoadingState();

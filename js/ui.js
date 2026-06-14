@@ -132,6 +132,7 @@ export function showSearchModal(items) {
       showLoadingState('Analisando ISSN', 'Consultando APIs e aplicando regras de extratos CAPES...', 'search');
       const classified = await enrichAndClassify(item.issn);
       addClassifiedItem(classified);
+      addRecentSearch(classified.issn, classified.title);
       renderResultsTable();
       dom.singleIssnInput.value = '';
       hideLoadingState();
@@ -260,4 +261,64 @@ function dismissToast(toast) {
   if (!toast || toast.classList.contains('toast-dismissing')) return;
   toast.classList.add('toast-dismissing');
   toast.addEventListener('animationend', () => toast.remove(), { once: true });
+}
+
+/**
+ * Adiciona uma consulta ao histórico de buscas recentes no localStorage.
+ * @param {string} issn ISSN do periódico
+ * @param {string} title Título do periódico
+ */
+export function addRecentSearch(issn, title) {
+  if (!issn || !title || title === 'Periódico Não Identificado na Base') return;
+  try {
+    const saved = localStorage.getItem('qualis_recent_searches');
+    let history = saved ? JSON.parse(saved) : [];
+    
+    // Remover duplicados
+    history = history.filter(item => item.issn !== issn);
+    
+    // Adicionar no topo
+    history.unshift({ issn, title });
+    
+    // Limitar a 4 itens
+    if (history.length > 4) {
+      history = history.slice(0, 4);
+    }
+    
+    localStorage.setItem('qualis_recent_searches', JSON.stringify(history));
+    renderRecentSearches();
+  } catch (e) {
+    console.warn('[Histórico] Falha ao adicionar busca recente:', e.message);
+  }
+}
+
+/**
+ * Renderiza dinamicamente a lista de buscas recentes na sidebar.
+ */
+export function renderRecentSearches() {
+  const container = dom.recentSearchesList;
+  if (!container) return;
+  
+  try {
+    const saved = localStorage.getItem('qualis_recent_searches');
+    const history = saved ? JSON.parse(saved) : [];
+    
+    if (history.length === 0) {
+      container.innerHTML = '<span class="no-history-msg">Nenhuma busca recente realizada.</span>';
+      return;
+    }
+    
+    container.innerHTML = history.map(item => {
+      const safeTitle = escapeHTML(item.title);
+      const safeIssn = escapeHTML(item.issn);
+      return `
+        <button class="recent-search-btn" data-issn="${safeIssn}" title="Clique para buscar ${safeTitle}">
+          <span class="recent-search-title">${safeTitle}</span>
+          <span class="recent-search-issn">${safeIssn}</span>
+        </button>
+      `;
+    }).join('');
+  } catch (e) {
+    console.warn('[Histórico] Falha ao renderizar buscas recentes:', e.message);
+  }
 }
