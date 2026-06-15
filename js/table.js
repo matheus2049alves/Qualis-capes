@@ -129,8 +129,8 @@ export function renderResultsTable() {
     dom.resultsTableBody.appendChild(row);
   });
 
-  // Re-inicializa os ícones Lucide na tabela dinâmica
+  // Re-inicializa os ícones Lucide apenas na tabela dinâmica
   if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
+    lucide.createIcons({ node: dom.resultsTableBody });
   }
 }

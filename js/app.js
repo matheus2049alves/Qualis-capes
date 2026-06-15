@@ -193,6 +193,8 @@ function setupEventListeners() {
             classified.title = `${article.title} (${classified.title})`;
           }
 
+          classified.year = article.year;
+
           addClassifiedItem(classified);
           countNew++;
         }

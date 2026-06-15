@@ -33,6 +33,8 @@ export function switchTab(tabId) {
     // Forçar redimensionamento dos gráficos criados em display: none
     if (appState.charts.qualis) appState.charts.qualis.resize();
     if (appState.charts.indexers) appState.charts.indexers.resize();
+    if (appState.charts.publicationsYear) appState.charts.publicationsYear.resize();
+    if (appState.charts.qualisEvolution) appState.charts.qualisEvolution.resize();
   }
 }
 
@@ -202,7 +204,7 @@ function updateThemeButtonLabel() {
     : '<i data-lucide="moon"></i> <span>Modo Escuro</span>';
 
   if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
+    lucide.createIcons({ node: dom.themeToggle });
   }
 }
 

@@ -639,7 +639,7 @@ body.light-theme .empty-state h3 {
 /* --- CARDS DE METRICAS (KPIs) --- */
 .kpi-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -1218,7 +1218,8 @@ body.light-theme .tab-btn.active {
 }
 
 .input-selector {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
@@ -1231,20 +1232,19 @@ body.light-theme .input-selector {
 }
 
 .selector-btn {
-  flex: 1;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
-  padding: 8px 4px;
+  padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
   font-family: var(--font-title);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   transition: var(--transition);
   white-space: nowrap;
 }
@@ -1651,4 +1651,82 @@ body.light-theme .indexer-tag.cinahl, body.light-theme .indexer-tag.cuiden, body
 .help-icon:hover {
   color: var(--text-primary);
   opacity: 1;
+}
+
+/* --- INSIGHTS DO CURRÍCULO --- */
+.insight-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid var(--primary-color);
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+body.light-theme .insight-item {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.insight-item:hover {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.insight-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.insight-icon .lucide {
+  width: 16px;
+  height: 16px;
+}
+
+.insight-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* --- TOP JOURNALS TABLE --- */
+.top-journal-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 10px 14px;
+}
+
+.top-journal-count {
+  text-align: center;
+  font-weight: 600;
+  color: var(--primary-color);
+  padding: 10px 14px;
+}
+
+/* --- CARDS DO DASHBOARD (SEM INLINE STYLES) --- */
+.card--insights {
+  margin-bottom: 0;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card--top-journals {
+  margin-bottom: 0;
+  min-height: 280px;
+}
+
+.insights-list {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
 }

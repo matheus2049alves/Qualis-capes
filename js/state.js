@@ -8,7 +8,9 @@ const appState = {
   dbSummary: { total: 0, items: [] },
   charts: {
     qualis: null,
-    indexers: null
+    indexers: null,
+    publicationsYear: null,
+    qualisEvolution: null
   }
 };
 

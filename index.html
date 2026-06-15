@@ -179,24 +179,29 @@
             <!-- Cards de Métricas de Resumo (KPIs) -->
             <div class="kpi-container">
               <div class="kpi-card">
-                <span class="kpi-title">Periódicos Processados</span>
+                <span class="kpi-title">Total de Artigos</span>
                 <span class="kpi-value" id="kpi-total">0</span>
-                <span class="kpi-sub">Total acumulado</span>
+                <span class="kpi-sub">Artigos identificados</span>
               </div>
               <div class="kpi-card">
-                <span class="kpi-title">Maior JCR</span>
-                <span class="kpi-value" id="kpi-max-jcr">-</span>
-                <span class="kpi-sub">Fator de impacto</span>
+                <span class="kpi-title">Produção Qualificada</span>
+                <span class="kpi-value" id="kpi-qualified-value">0</span>
+                <span class="kpi-sub" id="kpi-qualified-sub">0% do total (A1 + A2)</span>
               </div>
               <div class="kpi-card">
-                <span class="kpi-title">Maior CiteScore</span>
-                <span class="kpi-value" id="kpi-max-citescore">-</span>
-                <span class="kpi-sub">Scopus metric</span>
+                <span class="kpi-title">Qualidade do Currículo</span>
+                <span class="kpi-value" id="kpi-avg-score-value">0 / 100</span>
+                <span class="kpi-sub" id="kpi-avg-score-sub">Estrato Médio: -</span>
               </div>
               <div class="kpi-card">
-                <span class="kpi-title">Indexações de Qualidade</span>
-                <span class="kpi-value" id="kpi-percent-indexed">0%</span>
-                <span class="kpi-sub">SciELO/Scopus/Medline</span>
+                <span class="kpi-title">Não Classificados</span>
+                <span class="kpi-value" id="kpi-nc-count">0</span>
+                <span class="kpi-sub">Itens com estrato NC</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-title">Cobertura Internacional</span>
+                <span class="kpi-value" id="kpi-international-coverage">0%</span>
+                <span class="kpi-sub">Scopus + WoS + Medline</span>
               </div>
             </div>
 
@@ -212,6 +217,49 @@
                 <h2 class="card-title"><i data-lucide="bar-chart-4"></i> Distribuição por Indexadores</h2>
                 <div class="chart-wrapper">
                   <canvas id="indexers-chart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Segunda Grade de Gráficos Analíticos -->
+            <div class="analytics-grid" style="margin-top: 20px;">
+              <div class="card chart-card">
+                <h2 class="card-title"><i data-lucide="bar-chart-2"></i> Produção por Ano de Publicação</h2>
+                <div class="chart-wrapper">
+                  <canvas id="publications-year-chart"></canvas>
+                </div>
+              </div>
+              <div class="card chart-card">
+                <h2 class="card-title"><i data-lucide="trending-up"></i> Evolução da Qualidade (Score Qualis)</h2>
+                <div class="chart-wrapper">
+                  <canvas id="qualis-evolution-chart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Terceira Seção: Top Periódicos & Insights -->
+            <div class="analytics-grid" style="margin-top: 20px;">
+              <div class="card card--top-journals">
+                <h2 class="card-title"><i data-lucide="award"></i> Principais Periódicos Publicados</h2>
+                <div class="table-responsive" style="margin-top: 15px; border: none;">
+                  <table class="results-table" style="font-size: 13px;">
+                    <thead>
+                      <tr>
+                        <th scope="col">Periódico</th>
+                        <th scope="col" style="text-align: center; width: 80px;">Quantidade</th>
+                      </tr>
+                    </thead>
+                    <tbody id="top-journals-table-body">
+                      <!-- Linhas inseridas via JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div class="card card--insights">
+                <h2 class="card-title"><i data-lucide="lightbulb"></i> Insights & Destaques do Currículo</h2>
+                <div id="curriculum-insights-list" class="insights-list">
+                  <!-- Conteúdo gerado dinamicamente -->
                 </div>
               </div>
             </div>
