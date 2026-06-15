@@ -13,6 +13,7 @@ import dom from './dom.js';
 import appState, { addClassifiedItem, clearClassifiedItems, getFilteredItems, restoreResults } from './state.js';
 import { updateAnalytics } from './charts.js';
 import { renderResultsTable } from './table.js';
+import { parseLattesText } from './lattesParser.js';
 import {
   switchTab, switchInputType,
   showLoadingState, hideLoadingState,
@@ -122,6 +123,10 @@ function setupEventListeners() {
   // Limpar e Exportar
   dom.btnClear.addEventListener('click', () => {
     clearClassifiedItems();
+    if (dom.sessionResearcherTitle && dom.researcherNameDisplay) {
+      dom.sessionResearcherTitle.style.display = 'none';
+      dom.researcherNameDisplay.textContent = '-';
+    }
     renderResultsTable();
     switchTab('table');
     switchInputType('single');
@@ -156,6 +161,60 @@ function setupEventListeners() {
   if (dom.selectorSingle) dom.selectorSingle.addEventListener('click', () => switchInputType('single'));
   if (dom.selectorBatch) dom.selectorBatch.addEventListener('click', () => switchInputType('batch'));
   if (dom.selectorUpload) dom.selectorUpload.addEventListener('click', () => switchInputType('upload'));
+  if (dom.selectorLattes) dom.selectorLattes.addEventListener('click', () => switchInputType('lattes'));
+
+  // Lattes Form Submit
+  if (dom.lattesForm) {
+    dom.lattesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const researcherName = dom.lattesResearcherName.value.trim();
+      const lattesText = dom.lattesTextInput.value.trim();
+      if (!researcherName || !lattesText) return;
+
+      showLoadingState('Analisando Currículo Lattes', 'Segmentando artigos e aplicando inteligência de abreviações...', 'file-text');
+
+      try {
+        const dbItems = appState.dbSummary.items;
+        const parsedArticles = parseLattesText(lattesText, dbItems);
+        
+        if (parsedArticles.length === 0) {
+          hideLoadingState();
+          showToast('Nenhum artigo identificado no texto fornecido. Verifique o formato.', 'warning');
+          return;
+        }
+
+        let countNew = 0;
+        for (const article of parsedArticles) {
+          const classified = await enrichAndClassify(article.matchedIssn || article.journal);
+          
+          if (article.title && classified.title === 'Periódico Não Identificado na Base') {
+            classified.title = `[Não Identificado] ${article.journal}`;
+          } else if (article.title && classified.title) {
+            classified.title = `${article.title} (${classified.title})`;
+          }
+
+          addClassifiedItem(classified);
+          countNew++;
+        }
+
+        if (dom.sessionResearcherTitle && dom.researcherNameDisplay) {
+          dom.researcherNameDisplay.textContent = researcherName;
+          dom.sessionResearcherTitle.style.display = 'block';
+        }
+
+        dom.lattesTextInput.value = '';
+        
+        hideLoadingState();
+        renderResultsTable();
+        switchTab('analytics');
+        showToast(`${countNew} artigos do currículo processados com sucesso!`, 'success');
+      } catch (err) {
+        console.error("[Lattes Submit Error]", err);
+        hideLoadingState();
+        showToast('Erro crítico ao processar o Currículo Lattes.', 'error');
+      }
+    });
+  }
 
   // Cliques nos atalhos rápidos e buscas recentes (delegação de evento)
   const historyCard = document.getElementById('sidebar-history-card');

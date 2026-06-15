@@ -37,26 +37,29 @@ export function switchTab(tabId) {
 }
 
 /**
- * Alterna o formulário de entrada da barra lateral (Individual / Lote / Planilha).
- * @param {'single'|'batch'|'upload'} type Tipo de input selecionado
+ * Alterna o formulário de entrada da barra lateral (Individual / Lote / Planilha / Currículo).
+ * @param {'single'|'batch'|'upload'|'lattes'} type Tipo de input selecionado
  */
 export function switchInputType(type) {
-  if (!dom.selectorSingle || !dom.selectorBatch || !dom.selectorUpload ||
-    !dom.paneInputSingle || !dom.paneInputBatch || !dom.paneInputUpload) return;
+  if (!dom.selectorSingle || !dom.selectorBatch || !dom.selectorUpload || !dom.selectorLattes ||
+    !dom.paneInputSingle || !dom.paneInputBatch || !dom.paneInputUpload || !dom.paneInputLattes) return;
 
   // Resetar classes active
   dom.selectorSingle.classList.remove('active');
   dom.selectorBatch.classList.remove('active');
   dom.selectorUpload.classList.remove('active');
+  dom.selectorLattes.classList.remove('active');
   dom.paneInputSingle.classList.remove('active');
   dom.paneInputBatch.classList.remove('active');
   dom.paneInputUpload.classList.remove('active');
+  dom.paneInputLattes.classList.remove('active');
 
   // Ativar o correspondente
   const selectorMap = {
     single: [dom.selectorSingle, dom.paneInputSingle],
     batch: [dom.selectorBatch, dom.paneInputBatch],
-    upload: [dom.selectorUpload, dom.paneInputUpload]
+    upload: [dom.selectorUpload, dom.paneInputUpload],
+    lattes: [dom.selectorLattes, dom.paneInputLattes]
   };
 
   const [selector, pane] = selectorMap[type] || selectorMap.single;

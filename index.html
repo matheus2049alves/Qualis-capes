@@ -54,6 +54,10 @@
               <i data-lucide="file-spreadsheet"></i>
               <span>Planilha</span>
             </button>
+            <button type="button" id="selector-lattes" class="selector-btn" title="Análise de Currículo Lattes">
+              <i data-lucide="file-text"></i>
+              <span>Currículo</span>
+            </button>
           </div>
 
           <!-- Painel 1: Consulta Individual -->
@@ -93,6 +97,23 @@
                 <input type="file" id="file-input" accept=".csv">
               </div>
             </div>
+          </div>
+
+          <!-- Painel 4: Importação Currículo Lattes -->
+          <div id="input-pane-lattes" class="input-pane">
+            <form id="lattes-form">
+              <div class="form-group">
+                <label for="lattes-researcher-name">Nome do Pesquisador:</label>
+                <input type="text" id="lattes-researcher-name" class="text-input"
+                  placeholder="Ex: Carlos Leonardo F. Cunha" required>
+              </div>
+              <div class="form-group">
+                <label for="lattes-text-input">Cole a lista de artigos do Lattes:</label>
+                <textarea id="lattes-text-input" class="text-input"
+                  placeholder="Cole aqui a seção de artigos do Lattes..." required style="min-height: 120px;"></textarea>
+              </div>
+              <button type="submit" class="btn" style="width: 100%;">Analisar Currículo</button>
+            </form>
           </div>
         </div>
 
@@ -136,6 +157,12 @@
 
         <!-- Resultados e Analítica (Exibidos dinamicamente) -->
         <div id="analytics-results" style="display: none;">
+
+          <!-- Título Dinâmico do Pesquisador em Análise -->
+          <div id="session-researcher-title" style="display: none; margin-bottom: 15px; padding: 12px 20px; background: rgba(99, 102, 241, 0.08); border-left: 4px solid var(--primary-color); border-radius: 8px;">
+            <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); font-weight: 600;">Currículo Analisado</span>
+            <h2 style="font-family: var(--font-title); font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 4px;" id="researcher-name-display">-</h2>
+          </div>
 
           <!-- Navegação por Abas Premium -->
           <div id="results-tabs" class="tab-navigation" style="margin-bottom: 20px;">

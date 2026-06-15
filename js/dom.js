@@ -66,7 +66,16 @@ const dom = {
   toastContainer: document.getElementById('toast-container'),
 
   // Lista de Buscas Recentes
-  recentSearchesList: document.getElementById('recent-searches-list')
+  recentSearchesList: document.getElementById('recent-searches-list'),
+
+  // Lattes
+  selectorLattes: document.getElementById('selector-lattes'),
+  paneInputLattes: document.getElementById('input-pane-lattes'),
+  lattesForm: document.getElementById('lattes-form'),
+  lattesResearcherName: document.getElementById('lattes-researcher-name'),
+  lattesTextInput: document.getElementById('lattes-text-input'),
+  sessionResearcherTitle: document.getElementById('session-researcher-title'),
+  researcherNameDisplay: document.getElementById('researcher-name-display')
 };
 
 export default dom;

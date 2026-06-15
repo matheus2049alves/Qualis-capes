@@ -1235,17 +1235,18 @@ body.light-theme .input-selector {
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
-  padding: 8px 12px;
+  padding: 8px 4px;
   border-radius: 8px;
   cursor: pointer;
   font-family: var(--font-title);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .selector-btn:hover {
